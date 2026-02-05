@@ -1,20 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueue } from '../hooks/useQueue';
 import { queueManager } from '../services/queueManager';
+import { io } from "socket.io-client";
 import type { BarberId } from '../types';
 
 interface Props {
     onJoin: (clientId: string) => void;
 }
 
-const BARBERS: { id: BarberId; name: string }[] = [
-    { id: 'Mo', name: 'Mo' },
-    { id: 'Steve', name: 'Steve' },
-    { id: 'Sarah', name: 'Sarah' },
-];
+// Hardcoded BARBERS removed. Using dynamic state.
 
 export function CustomerLanding({ onJoin }: Props) {
     const [name, setName] = useState('');
+    const [groupSize, setGroupSize] = useState(1);
     const { clients, barbers } = useQueue();
 
     const getWaitTime = (barberId: BarberId) => {
@@ -30,7 +28,8 @@ export function CustomerLanding({ onJoin }: Props) {
 
         // Basic calc: 15 mins per person
         // If someone is in chair, maybe count them as partial? using 15m for simplicity.
-        const wait = relevantClients.length * 15;
+        const peopleCount = relevantClients.reduce((sum, c) => sum + (c.remainingSize || 1), 0);
+        const wait = peopleCount * 15;
         return wait;
     };
 
@@ -43,9 +42,18 @@ export function CustomerLanding({ onJoin }: Props) {
         return Math.min(...waits);
     };
 
+    useEffect(() => {
+        // Intent Tracking: Track that someone scanned the QR / opened the landing page
+        const socket = io('http://localhost:3001');
+        socket.emit('TRACK_SCAN');
+        return () => {
+            socket.disconnect();
+        };
+    }, []);
+
     const handleJoin = (preference: BarberId) => {
         if (!name.trim()) return;
-        const client = queueManager.addClient(name, preference);
+        const client = queueManager.addClient(name, preference, 'qr', groupSize);
         onJoin(client.id);
     };
 
@@ -57,6 +65,32 @@ export function CustomerLanding({ onJoin }: Props) {
             </header>
 
             <div className="card" style={{ marginBottom: '2rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
+                    GROUP SIZE
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                    {[1, 2, 3, 4, 5].map(num => (
+                        <button
+                            key={num}
+                            onClick={() => setGroupSize(num)}
+                            style={{
+                                flex: 1,
+                                padding: '1rem',
+                                borderRadius: '8px',
+                                border: groupSize === num ? '1px solid var(--color-gold)' : '1px solid rgba(255,255,255,0.1)',
+                                background: groupSize === num ? 'rgba(212, 175, 55, 0.1)' : 'rgba(255,255,255,0.05)',
+                                color: groupSize === num ? 'var(--color-gold)' : '#fff',
+                                fontSize: '1.2rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: '0.2s'
+                            }}
+                        >
+                            {num}
+                        </button>
+                    ))}
+                </div>
+
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
                     YOUR FIRST NAME
                 </label>

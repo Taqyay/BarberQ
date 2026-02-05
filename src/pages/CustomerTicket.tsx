@@ -1,5 +1,6 @@
 import { useQueue } from '../hooks/useQueue';
 import { queueManager } from '../services/queueManager';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 
 interface Props {
     clientId: string;
@@ -71,9 +72,8 @@ export function CustomerTicket({ clientId, onClear }: Props) {
                     </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-                    <span className="dot" style={{ width: '8px', height: '8px', background: 'var(--color-gold)', borderRadius: '50%', animation: 'pulse 1s infinite' }}></span>
-                    <span style={{ color: 'var(--color-gold)' }}>Live Updates</span>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+                    <ConnectionStatus />
                 </div>
 
                 <button

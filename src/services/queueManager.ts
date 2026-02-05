@@ -1,12 +1,18 @@
-import type { Client, ClientStatus, BarberId, QueueState, BarberState } from '../types';
+import type { BarberId, QueueState } from '../types';
 import { io, Socket } from 'socket.io-client';
 
 // Use current hostname (works for localhost AND network IP)
-const SERVER_URL = `http://${window.location.hostname}:3000`;
+const SERVER_URL = `http://${window.location.hostname}:3001`;
 
 export class QueueManager {
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private socket: Socket;
-  private state: QueueState = { clients: [], barbers: [] };
+  private state: QueueState = {
+    clients: [],
+    barbers: [],
+    settings: { snoozeEnabled: true, snoozeDurationMinutes: 5, averageCutTimeMinutes: 20, remoteBufferMinutes: 30 }
+  };
+  private isConnected = false;
   private listeners: (() => void)[] = [];
 
   constructor() {
@@ -14,6 +20,18 @@ export class QueueManager {
 
     this.socket.on('connect', () => {
       console.log('Connected to Queue Server');
+      this.isConnected = true;
+      this.notifyListeners();
+    });
+
+    this.socket.on('disconnect', () => {
+      this.isConnected = false;
+      this.notifyListeners();
+    });
+
+    this.socket.on('connect_error', () => {
+      this.isConnected = false;
+      this.notifyListeners();
     });
 
     this.socket.on('SYNC_STATE', (newState: QueueState) => {
@@ -36,15 +54,43 @@ export class QueueManager {
   // --- Read Actions (Local State) ---
   getClients() { return this.state.clients; }
   getBarbers() { return this.state.barbers; }
+  getSettings() { return this.state.settings; }
+  getConnectionStatus() { return this.isConnected; }
 
   // --- Write Actions (Emit to Server) ---
 
-  addClient(name: string, preference: BarberId) {
+  updateSettings(settings: Partial<QueueState['settings']>) {
+    this.socket.emit('UPDATE_SETTINGS', settings);
+  }
+
+  updateGroupSize(clientId: string, newSize: number) {
+    this.socket.emit('UPDATE_GROUP_SIZE', { clientId, newSize });
+  }
+
+  addBarber(name: string) {
+    this.socket.emit('ADD_BARBER', { name });
+  }
+
+  removeBarber(id: string) {
+    this.socket.emit('REMOVE_BARBER', id);
+  }
+
+  reorderBarbers(newOrderIds: string[]) {
+    this.socket.emit('REORDER_BARBERS', newOrderIds);
+  }
+
+  addClient(name: string, preference: BarberId, source: 'qr' | 'manual' = 'qr', groupSize: number = 1) {
     // Client-side ID generation for "My Ticket" tracking
     // crypto.randomUUID() requires Secure Context (HTTPS), using fallback for network IP
     const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
-    this.socket.emit('JOIN_QUEUE', { id, name, preference });
+    this.socket.emit('JOIN_QUEUE', { id, name, preference, source, groupSize });
     // Return the ID so the UI can track it immediately
+    return { id };
+  }
+
+  joinRemote(name: string, preference: BarberId, groupSize: number, travelTime: string, reservationTime: number) {
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
+    this.socket.emit('JOIN_REMOTE', { id, name, preference, groupSize, travelTime, reservationTime });
     return { id };
   }
 
@@ -66,6 +112,10 @@ export class QueueManager {
 
   reactivateClient(clientId: string) {
     this.socket.emit('REACTIVATE_CLIENT', clientId);
+  }
+
+  updateClientTimeSlot(clientId: string, newTime: number, barberId?: string) {
+    this.socket.emit('UPDATE_CLIENT_TIME_SLOT', { clientId, newTime, barberId });
   }
 
   reset() {

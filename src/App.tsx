@@ -1,22 +1,27 @@
-import { useState, useEffect } from 'react';
-import { CustomerLanding } from './pages/CustomerLanding';
-import { CustomerTicket } from './pages/CustomerTicket';
-import { BarberDashboard } from './pages/BarberDashboard';
+import { useState, useEffect, lazy, Suspense } from 'react';
 
-import { ShopDisplay } from './pages/ShopDisplay';
+const CustomerLanding = lazy(() => import('./pages/CustomerLanding').then(module => ({ default: module.CustomerLanding })));
+const CustomerTicket = lazy(() => import('./pages/CustomerTicket').then(module => ({ default: module.CustomerTicket })));
+const BarberDashboard = lazy(() => import('./pages/BarberDashboard').then(module => ({ default: module.BarberDashboard })));
+const ShopDisplay = lazy(() => import('./pages/ShopDisplay').then(module => ({ default: module.ShopDisplay })));
+const RemotePortal = lazy(() => import('./pages/RemotePortal').then(module => ({ default: module.RemotePortal })));
 
 function App() {
-  const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop'>('landing');
+  const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop' | 'remote'>('landing');
   const [ticketId, setTicketId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simple routing via URL hash for demo/dev speed
-    const checkHash = () => {
+    // Handling both Path (/shop) and Hash (#shop) routing
+    const checkRoute = () => {
       const hash = window.location.hash;
-      if (hash === '#dashboard' || hash === '#staff') {
+      const path = window.location.pathname;
+
+      if (path === '/dashboard' || hash === '#dashboard' || hash === '#staff') {
         setRoute('dashboard');
-      } else if (hash === '#shop') {
+      } else if (path === '/shop' || hash === '#shop') {
         setRoute('shop');
+      } else if (path === '/remote' || hash === '#remote' || path === '/qr' || hash === '#qr') {
+        setRoute('remote');
       } else if (ticketId) {
         setRoute('ticket');
       } else {
@@ -24,10 +29,14 @@ function App() {
       }
     };
 
-    window.addEventListener('hashchange', checkHash);
-    checkHash();
+    window.addEventListener('hashchange', checkRoute);
+    window.addEventListener('popstate', checkRoute); // Handle browser back/forward
+    checkRoute();
 
-    return () => window.removeEventListener('hashchange', checkHash);
+    return () => {
+      window.removeEventListener('hashchange', checkRoute);
+      window.removeEventListener('popstate', checkRoute);
+    };
   }, [ticketId]);
 
   const handleJoin = (id: string) => {
@@ -45,17 +54,21 @@ function App() {
   // Restore session
   useEffect(() => {
     const saved = localStorage.getItem('barberq_my_ticket');
-    if (saved && route !== 'dashboard' && route !== 'shop') {
+    if (saved && route !== 'dashboard' && route !== 'shop' && route !== 'remote') {
       setTicketId(saved);
       setRoute('ticket');
     }
   }, []);
 
-  if (route === 'shop') return <ShopDisplay />;
-  if (route === 'dashboard') return <BarberDashboard />;
-  if (route === 'ticket' && ticketId) return <CustomerTicket clientId={ticketId} onClear={handleClear} />;
-
-  return <CustomerLanding onJoin={handleJoin} />;
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', color: '#888' }}>Loading...</div>}>
+      {route === 'shop' && <ShopDisplay />}
+      {route === 'dashboard' && <BarberDashboard />}
+      {route === 'remote' && <RemotePortal />}
+      {route === 'ticket' && ticketId && <CustomerTicket clientId={ticketId} onClear={handleClear} />}
+      {route === 'landing' && <CustomerLanding onJoin={handleJoin} />}
+    </Suspense>
+  );
 }
 
 export default App;

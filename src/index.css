@@ -1,39 +1,84 @@
+@import "tailwindcss";
+
 :root {
   /* Premium Palette */
   --color-bg-dark: #0f1115;
   --color-bg-card: #181b21;
   --color-bg-card-hover: #1e2229;
-  
+
   --color-text-primary: #ffffff;
   --color-text-secondary: #a0a5b0;
-  --color-text-accent: #d4af37; /* Gold/Bronze */
-  
-  --color-primary: #2563eb; /* Fallback Blue, but we'll use Gold for CTA */
+  --color-text-accent: #d4af37;
+  /* Gold/Bronze */
+
+  --color-primary: #2563eb;
+  /* Fallback Blue, but we'll use Gold for CTA */
   --color-gold: #d4af37;
   --color-gold-hover: #f3c645;
-  
+
   --color-danger: #ef4444;
   --color-success: #22c55e;
-  
+
   --font-family-body: 'Inter', system-ui, -apple-system, sans-serif;
-  
+
   /* Spacing */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 1.5rem;
   --space-xl: 2rem;
-  
+
   /* Borders */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 9999px;
-  
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5);
-  
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
   --transition-fast: 0.2s ease;
+
+
+}
+
+@theme {
+  /* ShiftDash Corporate Palette */
+  --color-shift-bg: #F3F4F6;
+  --color-shift-surface: #FFFFFF;
+  --color-shift-primary: #C83252;
+  /* ShiftDash Red */
+  --color-shift-secondary: #1F2937;
+  /* Dark Charcoal */
+  --color-shift-text: #111827;
+  --color-shift-muted: #6B7280;
+  --color-shift-border: #E5E7EB;
+
+  /* ShiftDash Radii */
+  --radius-shift: 4px;
+  /* Minimal/Rectangular */
+  --radius-shift-card: 6px;
+}
+
+/* ShiftDash Utilities */
+.shift-card {
+  background-color: var(--color-shift-surface);
+  border: 1px solid var(--color-shift-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.shift-shadow-hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 * {
@@ -56,14 +101,17 @@ button {
   font-family: inherit;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 /* Utilities */
 .container {
-  max-width: 480px; /* Mobile first logic */
+  max-width: 480px;
+  /* Mobile first logic */
   margin: 0 auto;
   padding: var(--space-md);
   min-height: 100vh;
@@ -92,7 +140,7 @@ h1, h2, h3 {
 .btn-secondary {
   background: var(--color-bg-card);
   color: var(--color-text-primary);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: var(--space-md);
   border-radius: var(--radius-md);
   width: 100%;
@@ -102,7 +150,7 @@ h1, h2, h3 {
   background: var(--color-bg-card);
   border-radius: var(--radius-md);
   padding: var(--space-md);
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .fade-in {
@@ -110,8 +158,15 @@ h1, h2, h3 {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Dashboard Grid */

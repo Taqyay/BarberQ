@@ -4,7 +4,7 @@ const CustomerLanding = lazy(() => import('./pages/CustomerLanding').then(module
 const CustomerTicket = lazy(() => import('./pages/CustomerTicket').then(module => ({ default: module.CustomerTicket })));
 const BarberDashboard = lazy(() => import('./pages/BarberDashboard').then(module => ({ default: module.BarberDashboard })));
 const ShopDisplay = lazy(() => import('./pages/ShopDisplay').then(module => ({ default: module.ShopDisplay })));
-const RemotePortal = lazy(() => import('./pages/RemotePortal').then(module => ({ default: module.RemotePortal })));
+const RemotePortal_Mobile = lazy(() => import('./pages/RemotePortal_Mobile').then(module => ({ default: module.RemotePortal_Mobile })));
 
 function App() {
   const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop' | 'remote'>('landing');
@@ -64,7 +64,7 @@ function App() {
     <Suspense fallback={<div style={{ padding: '2rem', color: '#888' }}>Loading...</div>}>
       {route === 'shop' && <ShopDisplay />}
       {route === 'dashboard' && <BarberDashboard />}
-      {route === 'remote' && <RemotePortal />}
+      {route === 'remote' && <RemotePortal_Mobile />}
       {route === 'ticket' && ticketId && <CustomerTicket clientId={ticketId} onClear={handleClear} />}
       {route === 'landing' && <CustomerLanding onJoin={handleJoin} />}
     </Suspense>

@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
+import { simulationService } from './services/simulation';
 
 const CustomerLanding = lazy(() => import('./pages/CustomerLanding').then(module => ({ default: module.CustomerLanding })));
 const CustomerTicket = lazy(() => import('./pages/CustomerTicket').then(module => ({ default: module.CustomerTicket })));
@@ -7,6 +8,20 @@ const ShopDisplay = lazy(() => import('./pages/ShopDisplay').then(module => ({ d
 const RemotePortal_Mobile = lazy(() => import('./pages/RemotePortal_Mobile').then(module => ({ default: module.RemotePortal_Mobile })));
 
 function App() {
+  // Global UAT Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Trigger: "UAT time warp" -> strictly speaking user said "keyword", but mapped to Ctrl+Shift+U in plan/previous context
+      // User prompt: "Global Listener for the keyword: 'UAT time warp'" -> could be typing it?
+      // "Ctrl+Shift+U" is safer/cleaner. Let's stick to the shortcut implemented in RemotePortal.
+      if (e.ctrlKey && e.shiftKey && e.key === 'U') {
+        simulationService.start();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop' | 'remote'>('landing');
   const [ticketId, setTicketId] = useState<string | null>(null);
 

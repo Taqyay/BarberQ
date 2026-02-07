@@ -37,9 +37,12 @@ let state = {
 const handleCallNext = (barberId) => {
   // 1. Finish currently assigned client (if in chair)
   // 1. Finish currently assigned client (if in chair)
+  // 1. Finish currently assigned client (if in chair)
+  // BUG FIX: Ensure we timestamp when they finished for history tracking
+  const now = Date.now();
   state.clients = state.clients.map(c => {
     if (c.status === 'in_chair' && (c.assignedBarber === barberId || (c.barberPreference === barberId && !c.assignedBarber))) {
-      return { ...c, status: 'finished' };
+      return { ...c, status: 'finished', serviceEndTime: now };
     }
     return c;
   });
@@ -124,6 +127,7 @@ const handleCallNext = (barberId) => {
         name: `${nextClient.name} (${currentPersonIndex}/${nextClient.groupSize})`,
         status: 'in_chair',
         assignedBarber: barberId,
+        serviceStartTime: Date.now(),
         remainingSize: 0, // Individual has no remaining stack
         groupSize: 1
       };
@@ -133,7 +137,7 @@ const handleCallNext = (barberId) => {
       // NORMAL: Move whole entry to chair
       state.clients = state.clients.map(c =>
         c.id === nextClient.id
-          ? { ...c, status: 'in_chair', assignedBarber: barberId }
+          ? { ...c, status: 'in_chair', assignedBarber: barberId, serviceStartTime: Date.now() }
           : c
       );
     }

@@ -1,55 +1,50 @@
 import { useQueue } from '../hooks/useQueue';
-// import type { BarberId } from '../types';
+import { sortByEffectiveTime } from '../utils/clientSort';
 
 export function ShopDisplay() {
     const { clients, barbers } = useQueue();
 
-    // Use dynamic barbers list for columns
-    // const barberColumns = barbers.filter(b => b.isAvailable); // Unused
-    // User request: "filter clients where assignedBarber === 'Adam'".
-    // For dynamic, we iterate over `barbers`.
-
     return (
-        <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-8 font-sans text-neutral-900">
+        <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-8 font-sans text-neutral-900">
             {/* TV FRAME: 16:9 Aspect Ratio Simulation */}
-            <div className="w-full max-w-[1400px] aspect-video bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-neutral-100 overflow-hidden flex">
+            <div className="w-full max-w-[1400px] aspect-video bg-white rounded-3xl shadow-2xl border border-neutral-200 overflow-hidden flex">
 
                 {/* LEFT BRAND PANEL: Minimalist & Informational */}
-                <aside className="w-1/4 bg-white p-12 flex flex-col justify-between border-r border-neutral-50">
+                <aside className="w-1/4 bg-[#FAFAFA] p-12 flex flex-col justify-between border-r border-neutral-200">
                     <div className="space-y-10">
                         <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-600 font-semibold mb-1">Established 2026</p>
-                            <h1 className="text-4xl font-serif text-neutral-900 leading-tight">
+                            <p className="text-xs uppercase tracking-[0.2em] text-amber-600 font-bold mb-2">Since 2026</p>
+                            <h1 className="text-5xl font-serif text-neutral-900 leading-none tracking-tight">
                                 GOLDEN<br />BARBERS
                             </h1>
-                            <div className="w-12 h-[2px] bg-amber-500 mt-4" />
+                            <div className="w-16 h-1 bg-amber-500 mt-6" />
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="w-40 h-40 bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 flex items-center justify-center">
+                        <div className="space-y-6">
+                            <div className="w-48 h-48 bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 flex items-center justify-center">
                                 {/* QR CODE PLACEHOLDER */}
-                                <div className="w-full h-full bg-neutral-900 rounded-lg flex items-center justify-center">
-                                    <span className="text-[10px] text-white tracking-tighter">QR SCAN</span>
+                                <div className="w-full h-full bg-neutral-900 rounded-xl flex items-center justify-center">
+                                    <span className="text-xs text-neutral-500 font-mono tracking-widest">QR CODE</span>
                                 </div>
                             </div>
-                            <p className="text-xs text-neutral-400 leading-relaxed max-w-[160px]">
-                                Scan to join the chair and track your spot live on your phone.
+                            <p className="text-sm text-neutral-500 leading-relaxed max-w-[200px] font-medium">
+                                Scan to join the queue or book your next appointment instantly.
                             </p>
                         </div>
                     </div>
 
-                    {/* SNOOZE / HOLDING SECTION */}
+                    {/* SNOOZE / HOLDING SECTION - If any snoozed clients */}
                     {clients.some(c => c.status === 'snoozed') && (
-                        <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100/50">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Holding Area</span>
+                        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Holding Area</span>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 {clients.filter(c => c.status === 'snoozed').map(c => (
-                                    <p key={c.id} className="text-xs text-red-800 font-medium flex justify-between">
+                                    <p key={c.id} className="text-sm text-neutral-700 font-medium flex justify-between">
                                         {c.name}
-                                        <span className="text-red-400 font-normal ml-2">
+                                        <span className="text-amber-600/60 font-mono text-xs">
                                             ({Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m)
                                         </span>
                                     </p>
@@ -60,8 +55,8 @@ export function ShopDisplay() {
                 </aside>
 
                 {/* MAIN QUEUE: Three Column Grid */}
-                <main className="w-3/4 p-16 bg-white">
-                    <div className="grid grid-cols-3 gap-16 h-full">
+                <main className="w-3/4 p-12 bg-white">
+                    <div className="grid grid-cols-3 gap-12 h-full">
 
                         {/* COLUMN: DYNAMIC FOR EACH BARBER */}
                         {barbers.map((barber, i) => {
@@ -87,69 +82,64 @@ export function ShopDisplay() {
 
                                     return true;
                                 })
-                                .sort((a, b) => {
-                                    // Effective Time Logic (Matching Server)
-                                    // If waiting > 30m? Add 30m penalty.
-                                    const getEffectiveTime = (c: typeof a) => {
-                                        // Smart Timeslot Priority: Treat reservation time as the effective sorting time
-                                        if (c.reservationTime) {
-                                            return c.reservationTime;
-                                        }
-
-                                        let time = c.originalCheckInTime || c.checkInTime;
-                                        // Legacy remote penalty logic (optional, keep for safety)
-                                        if (c.source === 'remote' && c.travelTime === '30+' && !c.reservationTime) {
-                                            time += (30 * 60 * 1000);
-                                        }
-                                        return time;
-                                    };
-                                    return getEffectiveTime(a) - getEffectiveTime(b);
-                                });
+                                .sort(sortByEffectiveTime);
 
                             return (
-                                <section key={i} className="flex flex-col h-full">
-                                    {/* BARBER AVATAR & HEADER */}
-                                    <div className="flex flex-col items-center mb-10">
-                                        <div className="relative mb-6">
-                                            <div className="w-28 h-28 rounded-full bg-neutral-100 border-[4px] border-white shadow-lg overflow-hidden flex items-center justify-center text-neutral-300 font-serif text-3xl">
-                                                {/* Placeholder for Barber Image */}
+                                <section key={i} className={`flex flex-col h-full transition-opacity duration-500 ${isAvailable ? 'opacity-100' : 'opacity-40 grayscale'}`}>
+                                    {/* BARBER HEADER */}
+                                    <div className="flex items-center gap-4 mb-8 pb-6 border-b border-neutral-100">
+                                        <div className="relative">
+                                            <div className="w-16 h-16 rounded-full bg-neutral-200 border-2 border-white shadow-md overflow-hidden flex items-center justify-center text-neutral-400 font-serif text-2xl">
                                                 {barberName[0]}
                                             </div>
-                                            {isAvailable ? (
-                                                <div className="absolute -bottom-1 right-2 w-7 h-7 bg-green-500 border-4 border-white rounded-full" />
-                                            ) : (
-                                                <div className="absolute -bottom-1 right-2 w-7 h-7 bg-gray-400 border-4 border-white rounded-full" />
-                                            )}
+                                            {isAvailable && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />}
                                         </div>
-                                        <h2 className="text-2xl font-medium text-neutral-900">{barberName}</h2>
-                                        <span className="text-xs uppercase tracking-widest text-neutral-400 mt-2">{isAvailable ? 'On Shift' : 'Off Shift'}</span>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-neutral-900 tracking-tight">{barberName}</h2>
+                                            <span className="text-xs uppercase tracking-widest text-neutral-400 font-bold">{isAvailable ? 'Available' : 'Unavailable'}</span>
+                                        </div>
                                     </div>
 
                                     {/* NOW SERVING CARD */}
-                                    <div className="bg-[#FDFCFB] border border-amber-100/50 rounded-[2.5rem] p-8 text-center shadow-sm mb-10 transition-all hover:shadow-md">
-                                        <p className="text-[10px] uppercase tracking-[0.2em] text-amber-600 font-bold mb-4">Now Serving</p>
-                                        <p className="text-4xl font-serif text-neutral-800 truncate leading-tight">
-                                            {inChair ? inChair.name : <span className="text-neutral-300 text-2xl">Open</span>}
+                                    <div className="bg-neutral-900 rounded-2xl p-6 text-center shadow-lg mb-8 relative overflow-hidden group">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />
+                                        <p className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-bold mb-2">Serving Now</p>
+                                        <p className="text-3xl font-serif text-white truncate leading-tight">
+                                            {inChair ? inChair.name : <span className="text-neutral-700 text-2xl font-sans font-light">Chair Open</span>}
                                         </p>
                                     </div>
 
                                     {/* UP NEXT LIST */}
-                                    <div className="flex-1 px-4 overflow-hidden flex flex-col">
-                                        <p className="text-[11px] uppercase tracking-widest text-neutral-300 font-bold mb-8 border-b border-neutral-50 pb-3">Up Next</p>
-                                        <ul className="space-y-8 overflow-y-auto pr-2">
-                                            {waiting.length === 0 && <li className="text-base text-neutral-300 italic text-center py-4">No specific requests</li>}
-                                            {waiting.map((client) => (
-                                                <li key={client.id} className="flex items-center justify-between group">
-                                                    <span className="text-lg text-neutral-600 font-medium truncate max-w-[70%] group-hover:text-neutral-900 transition-colors">
-                                                        {client.name}
-                                                        {client.barberPreference === 'next_available' && (
-                                                            <span className="ml-2 text-[10px] text-neutral-400 font-normal uppercase tracking-wider">(Any)</span>
-                                                        )}
+                                    <div className="flex-1 overflow-hidden flex flex-col">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <p className="text-xs uppercase tracking-widest text-neutral-400 font-bold">Up Next</p>
+                                            <span className="bg-neutral-100 text-neutral-500 text-xs px-2 py-1 rounded-md font-bold">{waiting.length}</span>
+                                        </div>
+
+                                        <ul className="space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+                                            {waiting.length === 0 && (
+                                                <li className="flex flex-col items-center justify-center h-32 text-neutral-300 border-2 border-dashed border-neutral-100 rounded-xl">
+                                                    <span className="text-sm font-medium">No clients waiting</span>
+                                                </li>
+                                            )}
+                                            {waiting.map((client, idx) => (
+                                                <li key={client.id} className="flex items-center justify-between bg-white px-1 py-1 group">
+                                                    <div className="flex items-center gap-3 w-full">
+                                                        <span className="text-neutral-300 font-bold font-mono text-sm w-4">
+                                                            {idx + 1}
+                                                        </span>
+                                                        <span className="text-lg text-neutral-700 font-medium truncate flex-1 group-hover:text-black transition-colors">
+                                                            {client.name}
+                                                            {client.barberPreference === 'next_available' && (
+                                                                <span className="ml-2 text-[10px] text-neutral-400 font-normal uppercase border border-neutral-200 px-1 rounded align-middle">Any</span>
+                                                            )}
+                                                        </span>
                                                         {client.remainingSize && client.remainingSize > 1 && (
-                                                            <span className="ml-3 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full ring-1 ring-amber-200">+{client.remainingSize - 1}</span>
+                                                            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-bold">
+                                                                +{client.remainingSize - 1}
+                                                            </span>
                                                         )}
-                                                    </span>
-                                                    <div className="h-[1px] w-12 bg-neutral-100 group-hover:bg-neutral-200 transition-colors" />
+                                                    </div>
                                                 </li>
                                             ))}
                                         </ul>

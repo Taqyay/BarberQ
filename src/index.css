@@ -42,26 +42,7 @@
 
 }
 
-@theme {
-  /* M3 Refined Palette */
-  --color-m3-surface: #FEF7FF;
-  --color-m3-surface-dim: #DCE2F9;
-  /* Chips Background */
-  --color-m3-on-surface: #151B2C;
-  /* Text */
-  --color-m3-outline: #E2E2EC;
-  /* Subtle Border */
-  --color-m3-primary: #1D58B1;
-  /* Primary Blue */
-  --color-m3-on-primary: #FFFFFF;
-
-  /* M3 Refined Radii */
-  --radius-m3-sm: 8px;
-  /* Chips */
-  --radius-m3-md: 12px;
-  /* Cards */
-  --radius-m3-full: 9999px;
-}
+/* M3 Theme Removed */
 
 /* Utilities */
 .no-scrollbar::-webkit-scrollbar {

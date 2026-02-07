@@ -9,11 +9,8 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Hardcoded BARBERS removed in favor of dynamic state
-// const BARBERS...
-
 export function BarberDashboard() {
-    const { clients, barbers, settings } = useQueue();
+    const { clients, barbers } = useQueue();
     const [activeTab, setActiveTab] = useState<'queue' | 'calendar' | 'settings'>('queue');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newClientName, setNewClientName] = useState('');
@@ -28,7 +25,7 @@ export function BarberDashboard() {
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // Require 8px movement to start drag (prevents accidental clicks)
+                distance: 8,
             },
         }),
         useSensor(KeyboardSensor, {
@@ -48,19 +45,14 @@ export function BarberDashboard() {
 
     const handleAddWalkIn = () => {
         if (!newClientName.trim()) return;
-
-        // If prefillTime is set, create a "reservation" (manual appointment)
         if (prefillTime) {
             const result = queueManager.addClient(newClientName, newPreference, 'manual', newGroupSize);
-            // Immediately update time slot (since addClient doesn't support time yet)
-            // Ideally addClient should support it, but this works for v0.6.0
             if (result && result.id) {
                 queueManager.updateClientTimeSlot(result.id, prefillTime.getTime(), newPreference);
             }
         } else {
             queueManager.addClient(newClientName, newPreference, 'manual', newGroupSize);
         }
-
         setIsModalOpen(false);
         setNewClientName('');
         setNewPreference('next_available');
@@ -71,7 +63,7 @@ export function BarberDashboard() {
     const handleCalendarAdd = (barberId: string, time: Date) => {
         setNewPreference(barberId as BarberId);
         setPrefillTime(time);
-        setNewClientName(''); // Reset name
+        setNewClientName('');
         setIsModalOpen(true);
     };
 
@@ -91,81 +83,43 @@ export function BarberDashboard() {
         clients.find(c => c.status === 'in_chair' && (c.assignedBarber === barberId || (c.barberPreference === barberId && !c.assignedBarber)));
 
     return (
-        <div style={{
-            height: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '1rem',
-            overflow: 'hidden'
-        }}>
+        <div className="h-screen flex flex-col p-4 overflow-hidden bg-[#0f1115] font-sans text-white">
             {/* Header & Tabs */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div className="flex justify-between items-center mb-4 bg-[#1a1d24] p-4 rounded-xl shadow-sm border border-white/5">
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff', margin: 0, lineHeight: 1.2 }}>Staff Dashboard</h1>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <p style={{ margin: 0, color: '#888', fontSize: '0.9rem' }}>
+                    <h1 className="text-2xl font-bold text-white m-0 leading-tight">STAFF DASHBOARD</h1>
+                    <div className="flex items-center gap-4 mt-1">
+                        <p className="m-0 text-gray-400 text-sm">
                             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                         <ConnectionStatus showLabel={false} />
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', background: '#222', padding: '0.3rem', borderRadius: '8px' }}>
+                <div className="flex gap-4 bg-black/20 p-1.5 rounded-lg border border-white/5">
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        style={{
-                            padding: '0.5rem 1.5rem',
-                            borderRadius: '6px',
-                            background: '#eab308', // Gold/Yellow
-                            color: '#000',
-                            border: 'none',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                        }}
+                        className="px-6 py-2 rounded-md bg-white text-black border-none font-bold cursor-pointer flex items-center gap-2 hover:bg-gray-200 transition-colors shadow-sm"
                     >
                         <span>+ Walk-in</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('queue')}
-                        style={{
-                            padding: '0.5rem 1.5rem',
-                            borderRadius: '6px',
-                            background: activeTab === 'queue' ? 'var(--color-primary)' : 'transparent',
-                            color: activeTab === 'queue' ? '#000' : '#888',
-                            border: 'none',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
+                        className={`px-6 py-2 rounded-md border-none font-bold cursor-pointer transition-all ${activeTab === 'queue' ? 'bg-[#2a2d36] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-gray-300'
+                            }`}
                     >
                         Live Queue
                     </button>
                     <button
                         onClick={() => setActiveTab('calendar')}
-                        style={{
-                            padding: '0.5rem 1.5rem',
-                            borderRadius: '6px',
-                            background: activeTab === 'calendar' ? 'var(--color-primary)' : 'transparent',
-                            color: activeTab === 'calendar' ? '#000' : '#888',
-                            border: 'none',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
+                        className={`px-6 py-2 rounded-md border-none font-bold cursor-pointer transition-all ${activeTab === 'calendar' ? 'bg-[#2a2d36] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-gray-300'
+                            }`}
                     >
                         Calendar
                     </button>
                     <button
                         onClick={() => setActiveTab('settings')}
-                        style={{
-                            padding: '0.5rem 1.5rem',
-                            borderRadius: '6px',
-                            background: activeTab === 'settings' ? 'var(--color-primary)' : 'transparent',
-                            color: activeTab === 'settings' ? '#000' : '#888',
-                            border: 'none',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
+                        className={`px-6 py-2 rounded-md border-none font-bold cursor-pointer transition-all ${activeTab === 'settings' ? 'bg-[#2a2d36] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-gray-300'
+                            }`}
                     >
                         Settings
                     </button>
@@ -174,42 +128,23 @@ export function BarberDashboard() {
 
             {/* Manual Entry Modal */}
             {isModalOpen && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#1d1d1d',
-                        padding: '2rem',
-                        borderRadius: '16px',
-                        width: '100%',
-                        maxWidth: '400px',
-                        border: '1px solid #333',
-                        boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-                    }}>
-                        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '1.5rem' }}>
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
+                    <div className="bg-[#1a1d24] p-8 rounded-xl w-full max-w-md shadow-xl border border-white/10">
+                        <h2 className="text-white m-0 mb-6 font-bold text-xl border-b border-white/10 pb-4">
                             {prefillTime ? `Book Appointment` : `Add Walk-in Client`}
                         </h2>
 
                         {prefillTime && (
-                            <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#333', borderRadius: '4px', borderLeft: '3px solid var(--color-gold)' }}>
-                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}>
+                            <div className="mb-4 p-3 bg-blue-500/10 rounded-lg border-l-4 border-blue-500">
+                                <p className="m-0 text-sm text-gray-300">
                                     <strong>Time:</strong> {prefillTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} <br />
                                     <strong>Barber:</strong> {newPreference}
                                 </p>
                             </div>
                         )}
 
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Client Name</label>
+                        <div className="mb-4">
+                            <label className="block text-gray-400 mb-2 text-sm font-medium">Client Name</label>
                             <input
                                 autoFocus
                                 type="text"
@@ -219,36 +154,19 @@ export function BarberDashboard() {
                                     if (e.key === 'Enter') handleAddWalkIn();
                                 }}
                                 placeholder="Enter name..."
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem',
-                                    borderRadius: '8px',
-                                    background: '#111',
-                                    border: '1px solid #333',
-                                    color: '#fff',
-                                    fontSize: '1.2rem',
-                                    outline: 'none'
-                                }}
+                                className="w-full p-4 rounded-xl bg-[#0f1115] border border-white/10 text-white text-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                             />
                         </div>
 
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Group Size</label>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div className="mb-4">
+                            <label className="block text-gray-400 mb-2 text-sm font-medium">Group Size</label>
+                            <div className="flex gap-2">
                                 {[1, 2, 3, 4, 5].map(num => (
                                     <button
                                         key={num}
                                         onClick={() => setNewGroupSize(num)}
-                                        style={{
-                                            flex: 1,
-                                            padding: '0.8rem',
-                                            borderRadius: '6px',
-                                            background: newGroupSize === num ? 'var(--color-gold)' : '#333',
-                                            color: newGroupSize === num ? '#000' : '#888',
-                                            border: 'none',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer'
-                                        }}
+                                        className={`flex-1 p-3 rounded-lg border-none font-bold cursor-pointer transition-all ${newGroupSize === num ? 'bg-blue-600 text-white shadow-md' : 'bg-[#0f1115] text-gray-500 hover:bg-[#2a2d36]'
+                                            }`}
                                     >
                                         {num}
                                     </button>
@@ -256,71 +174,32 @@ export function BarberDashboard() {
                             </div>
                         </div>
 
-                        <div style={{ marginBottom: '2rem' }}>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Preference</label>
+                        <div className="mb-8">
+                            <label className="block text-gray-400 mb-2 text-sm font-medium">Preference</label>
                             <select
                                 value={newPreference}
                                 onChange={e => setNewPreference(e.target.value as BarberId)}
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem',
-                                    borderRadius: '8px',
-                                    background: '#111',
-                                    border: '1px solid #333',
-                                    color: '#fff',
-                                    fontSize: '1rem',
-                                    outline: 'none'
-                                }}
+                                className="w-full p-4 rounded-xl bg-[#0f1115] border border-white/10 text-white text-base outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
                             >
                                 <option value="next_available">Next Available</option>
-                                {barbers.map(b => {
-                                    // Soft-Lock Check: Any reservation in next 30 mins?
-                                    const now = Date.now();
-                                    const hasUpcoming = clients.some(c =>
-                                        c.barberPreference === b.id &&
-                                        c.reservationTime &&
-                                        c.reservationTime > now &&
-                                        c.reservationTime - now < 30 * 60000
-                                    );
-                                    return (
-                                        <option key={b.id} value={b.id}>
-                                            {b.name} {hasUpcoming ? '(Reserved <30m)' : ''}
-                                        </option>
-                                    );
-                                })}
+                                {barbers.map(b => (
+                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                ))}
                             </select>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div className="flex gap-4">
                             <button
                                 onClick={() => { setIsModalOpen(false); setPrefillTime(null); }}
-                                style={{
-                                    flex: 1,
-                                    padding: '1rem',
-                                    borderRadius: '8px',
-                                    background: 'transparent',
-                                    color: '#888',
-                                    border: '1px solid #333',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold'
-                                }}
+                                className="flex-1 p-4 rounded-xl bg-transparent text-gray-400 border border-white/10 cursor-pointer font-bold hover:bg-white/5"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleAddWalkIn}
                                 disabled={!newClientName.trim()}
-                                style={{
-                                    flex: 1,
-                                    padding: '1rem',
-                                    borderRadius: '8px',
-                                    background: 'var(--color-primary)',
-                                    color: '#000',
-                                    border: 'none',
-                                    cursor: newClientName.trim() ? 'pointer' : 'not-allowed',
-                                    fontWeight: 'bold',
-                                    opacity: newClientName.trim() ? 1 : 0.5
-                                }}
+                                className={`flex-1 p-4 rounded-xl border-none font-bold cursor-pointer text-white shadow-md transition-all ${newClientName.trim() ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 cursor-not-allowed'
+                                    }`}
                             >
                                 {prefillTime ? 'Book Slot' : 'Add Client'}
                             </button>
@@ -331,30 +210,20 @@ export function BarberDashboard() {
 
             {/* Edit Group Size Modal */}
             {editingGroupClient && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#1d1d1d', padding: '2rem', borderRadius: '16px',
-                        width: '100%', maxWidth: '400px', border: '1px solid #333', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-                    }}>
-                        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '1rem' }}>Edit Group Size</h2>
-                        <p style={{ color: '#aaa', marginBottom: '1.5rem' }}>
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
+                    <div className="bg-[#1a1d24] p-8 rounded-xl w-full max-w-md shadow-xl border border-white/10">
+                        <h2 className="text-white m-0 mb-4 font-bold text-xl">Edit Group Size</h2>
+                        <p className="text-gray-400 mb-6">
                             Reduce group size for <strong>{editingGroupClient.name}</strong>.<br />
-                            <span style={{ fontSize: '0.8rem', color: '#666' }}>Current Remaining: {editingGroupClient.remainingSize}</span>
+                            <span className="text-xs text-gray-500">Current Remaining: {editingGroupClient.remainingSize}</span>
                         </p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '2rem' }}>
+                        <div className="grid grid-cols-4 gap-2 mb-8">
                             {Array.from({ length: (editingGroupClient.remainingSize || 0) - 1 }, (_, i) => i + 1).map(size => (
                                 <button
                                     key={size}
                                     onClick={() => handleUpdateGroupSize(size)}
-                                    style={{
-                                        padding: '1rem', borderRadius: '8px',
-                                        background: '#333', color: '#fff', border: '1px solid #444',
-                                        cursor: 'pointer', fontWeight: 'bold'
-                                    }}
+                                    className="p-3 rounded-lg bg-[#0f1115] text-white border border-white/10 cursor-pointer font-bold hover:bg-blue-600 hover:border-blue-500 transition-all"
                                 >
                                     {size}
                                 </button>
@@ -363,7 +232,7 @@ export function BarberDashboard() {
 
                         <button
                             onClick={() => setEditingGroupClient(null)}
-                            style={{ width: '100%', padding: '1rem', borderRadius: '8px', background: 'transparent', color: '#888', border: '1px solid #333', cursor: 'pointer' }}
+                            className="w-full p-4 rounded-xl bg-transparent text-gray-400 border border-white/10 cursor-pointer hover:bg-white/5"
                         >
                             Cancel
                         </button>
@@ -374,91 +243,35 @@ export function BarberDashboard() {
             {activeTab === 'queue' ? (
                 <>
                     {/* Shift Manager Section */}
-                    <div style={{
-                        marginBottom: '1rem',
-                        background: '#222',
-                        padding: '0.8rem',
-                        borderRadius: '12px',
-                        border: '1px solid #333',
-                        flexShrink: 0
-                    }}>
-                        <h3 style={{ marginBottom: '0.5rem', color: '#fff', fontSize: '1rem' }}>Shift Manager</h3>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div className="mb-4 bg-[#1a1d24] p-6 rounded-xl shadow-sm border border-white/5 flex-shrink-0">
+                        <h3 className="mb-4 text-white font-bold text-lg uppercase tracking-wider">Shift Manager</h3>
+                        <div className="flex gap-4">
                             {barbers.map(b => (
                                 <button
                                     key={b.id}
                                     onClick={() => queueManager.toggleBarberAvailability(b.id, !b.isAvailable)}
-                                    style={{
-                                        flex: 1,
-                                        padding: '1rem',
-                                        borderRadius: '8px',
-                                        background: b.isAvailable ? 'var(--color-success)' : '#333',
-                                        color: b.isAvailable ? '#000' : '#888',
-                                        fontSize: '1rem',
-                                        fontWeight: 'bold',
-                                        border: b.isAvailable ? 'none' : '1px solid #444',
-                                        opacity: b.isAvailable ? 1 : 0.8,
-                                        transition: '0.2s'
-                                    }}
+                                    className={`flex-1 h-16 rounded-xl text-base font-bold border-none transition-all shadow-sm ${b.isAvailable ? 'bg-blue-600/20 text-blue-400 ring-2 ring-blue-500/50' : 'bg-[#0f1115] text-gray-600 grayscale'
+                                        }`}
                                 >
-                                    {b.name} <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>{b.isAvailable ? 'ACTIVE' : 'OFF'}</span>
+                                    {b.name} <span className="block text-xs mt-1 opacity-70 uppercase tracking-widest">{b.isAvailable ? 'ACTIVE' : 'OFF'}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     {/* Main Columns */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: '1rem',
-                        flex: 1,
-                        minHeight: 0, // Important for nested scroll
-                        overflow: 'hidden'
-                    }}>
+                    <div className="grid grid-cols-4 gap-4 flex-1 min-h-0 overflow-hidden">
                         {/* Global Pool Column */}
-                        <div className="barber-col" style={{ border: '1px dashed #333', display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
-                            <div style={{ padding: '1rem', borderBottom: '1px solid #333' }}>
-                                <h2 style={{ color: '#aaa', fontSize: '1.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Next Available</h2>
-                                <span style={{ fontSize: '0.8rem', color: '#666' }}>{globalPool.length} waiting</span>
+                        <div className="flex flex-col h-full min-w-0 bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 overflow-hidden">
+                            <div className="p-4 border-b border-white/5 bg-black/20">
+                                <h2 className="text-gray-400 font-bold text-lg m-0 truncate uppercase tracking-wide">Next Available</h2>
+                                <span className="text-xs font-bold text-gray-500">{globalPool.length} waiting</span>
                             </div>
-                            <div style={{ padding: '0.5rem', overflowY: 'auto', flex: 1 }}>
+                            <div className="p-4 overflow-y-auto flex-1 space-y-3">
                                 {globalPool.map(c => (
                                     <ClientCard key={c.id} client={c} onEditGroup={setEditingGroupClient} />
                                 ))}
-                                {globalPool.length === 0 && <p style={{ opacity: 0.3, fontStyle: 'italic', padding: '1rem' }}>Empty</p>}
-
-                                {/* Snoozed Next Available Clients */}
-                                {clients.some(c => c.status === 'snoozed' && c.barberPreference === 'next_available') && (
-                                    <div style={{ marginTop: '1rem', borderTop: '1px solid #333', paddingTop: '0.5rem' }}>
-                                        <h4 style={{ color: 'var(--color-gold)', marginBottom: '0.5rem', fontSize: '0.7rem' }}>SNOOZED / HOLDING</h4>
-                                        {clients.filter(c => c.status === 'snoozed' && c.barberPreference === 'next_available').map(c => (
-                                            <div key={c.id} style={{ background: '#2a2211', border: '1px solid var(--color-gold)', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.5rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{c.name}</span>
-                                                    <button
-                                                        onClick={() => queueManager.reactivateClient(c.id)}
-                                                        style={{
-                                                            background: 'var(--color-gold)',
-                                                            color: '#000',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            padding: '0.2rem 0.5rem',
-                                                            fontSize: '0.7rem',
-                                                            fontWeight: 'bold',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        REACTIVATE
-                                                    </button>
-                                                </div>
-                                                <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '0.2rem' }}>
-                                                    Auto-cancel in ~{Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                {globalPool.length === 0 && <div className="text-gray-600 italic text-center py-8">No customers in queue</div>}
                             </div>
                         </div>
 
@@ -466,26 +279,18 @@ export function BarberDashboard() {
                         {barbers.map(barber => {
                             const queue = getQueueFor(barber.id);
                             const inChair = getInChair(barber.id);
-                            const snoozed = clients.filter(c => c.status === 'snoozed' && (c.assignedBarber === barber.id || (!c.assignedBarber && c.barberPreference === barber.id))); // assignedBarber is cleared on snooze, so check preference
 
                             return (
-                                <div key={barber.id} className="barber-col" style={{
-                                    opacity: barber.isAvailable ? 1 : 0.5,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    height: '100%', // Ensure full height
-                                    minWidth: 0 // CRITICAL: Allows flex child to shrink past content size
-                                }}>
-                                    <header style={{ padding: '1rem', background: '#222', borderBottom: '1px solid #333' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                            <h2 style={{ fontSize: '1.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{barber.name}</h2>
-                                            {!barber.isAvailable && <span style={{ background: '#333', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.6rem' }}>OFF</span>}
+                                <div key={barber.id} className={`flex flex-col h-full min-w-0 bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 overflow-hidden transition-opacity ${barber.isAvailable ? 'opacity-100' : 'opacity-60'}`}>
+                                    <header className="p-4 border-b border-white/5 bg-black/20">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h2 className="text-xl font-bold text-white m-0 truncate uppercase">{barber.name}</h2>
+                                            {!barber.isAvailable && <span className="bg-red-500/20 text-red-500 px-2 py-0.5 rounded text-xs font-bold">OFF</span>}
                                         </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div className="flex gap-2">
                                             <button
-                                                className="btn-primary"
                                                 onClick={() => queueManager.callNext(barber.id)}
-                                                style={{ fontSize: '0.9rem', padding: '0.6rem', flex: 1 }}
+                                                className="flex-1 py-3 bg-white text-black hover:bg-gray-200 text-sm font-bold border-none rounded-lg cursor-pointer transition-colors shadow-sm uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
                                                 disabled={!barber.isAvailable}
                                             >
                                                 CALL NEXT
@@ -493,67 +298,27 @@ export function BarberDashboard() {
                                             <button
                                                 onClick={() => inChair && queueManager.snoozeClient(inChair.id)}
                                                 disabled={!inChair}
-                                                style={{
-                                                    fontSize: '0.9rem',
-                                                    padding: '0.6rem',
-                                                    background: inChair ? 'var(--color-danger)' : '#333',
-                                                    color: '#fff',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    cursor: inChair ? 'pointer' : 'default',
-                                                    opacity: inChair ? 1 : 0.5
-                                                }}
-                                                title="Mark as Not Here (Snooze)"
+                                                className={`px-4 py-3 text-sm font-bold border-none rounded-lg cursor-pointer transition-colors shadow-sm uppercase tracking-wide ${inChair ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-800 text-gray-600 cursor-default'
+                                                    }`}
                                             >
-                                                NOT HERE
+                                                Not Here
                                             </button>
                                         </div>
                                     </header>
 
-                                    <div style={{ padding: '0.5rem', flex: 1, overflowY: 'auto', background: '#181b21' }}>
+                                    <div className="p-4 flex-1 overflow-y-auto bg-black/20 space-y-3">
                                         {inChair && (
-                                            <div style={{ marginBottom: '1rem', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--color-success)', borderRadius: '8px', padding: '0.8rem', minWidth: 0 }}>
-                                                <span style={{ fontSize: '0.6rem', color: 'var(--color-success)', fontWeight: 'bold' }}>IN CHAIR</span>
-                                                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{inChair.name}</div>
+                                            <div className="mb-4 bg-blue-500/10 border-l-4 border-blue-500 rounded-r-lg p-4 shadow-sm">
+                                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest block mb-1">IN CHAIR</span>
+                                                <div className="text-lg font-bold text-white truncate">{inChair.name}</div>
                                             </div>
                                         )}
 
-                                        <h4 style={{ color: '#666', marginBottom: '0.5rem', fontSize: '0.7rem' }}>WAITING ({queue.length})</h4>
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">WAITING ({queue.length})</h4>
                                         {queue.map(c => (
                                             <ClientCard key={c.id} client={c} onEditGroup={setEditingGroupClient} />
                                         ))}
-                                        {queue.length === 0 && <p style={{ opacity: 0.3, fontSize: '0.8rem', padding: '0.5rem' }}>No direct requests</p>}
-
-                                        {snoozed.length > 0 && (
-                                            <div style={{ marginTop: '1rem', borderTop: '1px solid #333', paddingTop: '0.5rem' }}>
-                                                <h4 style={{ color: 'var(--color-gold)', marginBottom: '0.5rem', fontSize: '0.7rem' }}>SNOOZED / HOLDING</h4>
-                                                {snoozed.map(c => (
-                                                    <div key={c.id} style={{ background: '#2a2211', border: '1px solid var(--color-gold)', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.5rem' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{c.name}</span>
-                                                            <button
-                                                                onClick={() => queueManager.reactivateClient(c.id)}
-                                                                style={{
-                                                                    background: 'var(--color-gold)',
-                                                                    color: '#000',
-                                                                    border: 'none',
-                                                                    borderRadius: '4px',
-                                                                    padding: '0.2rem 0.5rem',
-                                                                    fontSize: '0.7rem',
-                                                                    fontWeight: 'bold',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                REACTIVATE
-                                                            </button>
-                                                        </div>
-                                                        <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '0.2rem' }}>
-                                                            Auto-cancel in ~{Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                        {queue.length === 0 && <p className="text-gray-600 text-sm italic py-2">No direct requests</p>}
                                     </div>
                                 </div>
                             );
@@ -561,57 +326,24 @@ export function BarberDashboard() {
                     </div>
                 </>
             ) : activeTab === 'calendar' ? (
-                <CalendarView onAddClient={handleCalendarAdd} />
+                // Calendar Container - Dark Mode
+                <div className="flex-1 bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 overflow-hidden">
+                    <CalendarView onAddClient={handleCalendarAdd} />
+                </div>
             ) : (
-                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                    <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto', color: '#fff' }}>
-                        <h2 style={{ borderBottom: '1px solid #333', paddingBottom: '1rem', marginBottom: '2rem' }}>Shop Configuration</h2>
+                <div className="flex-1 overflow-y-auto bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 p-8">
+                    <div className="max-w-2xl mx-auto">
+                        <h2 className="text-2xl font-bold text-white border-b border-white/10 pb-4 mb-8">Shop Configuration</h2>
 
-                        <div style={{ marginBottom: '2rem' }}>
-                            <h3 style={{ color: 'var(--color-gold)', marginBottom: '1rem' }}>Queue Management</h3>
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', background: '#222', padding: '1rem', borderRadius: '8px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontWeight: 'bold' }}>Snooze / "Not Here" Feature</label>
-                                    <p style={{ fontSize: '0.8rem', color: '#888', margin: 0 }}>Allow barbers to snooze missing clients</p>
-                                </div>
-                                <input
-                                    type="checkbox"
-                                    checked={settings?.snoozeEnabled ?? true}
-                                    onChange={(e) => queueManager.updateSettings({ snoozeEnabled: e.target.checked })}
-                                    style={{ width: '20px', height: '20px' }}
-                                />
-                            </div>
-
-                            <div style={{ marginBottom: '1.5rem', opacity: settings?.snoozeEnabled ? 1 : 0.5, pointerEvents: settings?.snoozeEnabled ? 'auto' : 'none' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Snooze Duration (Minutes)</label>
-                                <input
-                                    type="number"
-                                    value={settings?.snoozeDurationMinutes ?? 5}
-                                    onChange={(e) => queueManager.updateSettings({ snoozeDurationMinutes: parseInt(e.target.value) || 5 })}
-                                    style={{
-                                        padding: '0.8rem',
-                                        borderRadius: '6px',
-                                        background: '#222',
-                                        border: '1px solid #333',
-                                        color: '#fff',
-                                        width: '100%'
-                                    }}
-                                />
-                                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>Clients are auto-cancelled after this time.</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 style={{ color: 'var(--color-gold)', marginBottom: '1rem' }}>Staff Management</h3>
-
-                            <div style={{ marginBottom: '1.5rem', background: '#222', padding: '1rem', borderRadius: '8px' }}>
-                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <div className="mb-8">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">Staff Management</h3>
+                            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                                <div className="flex gap-2 mb-4">
                                     <input
                                         type="text"
-                                        placeholder="New Barber Name"
                                         id="new-barber-name"
-                                        style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #444', background: '#333', color: '#fff' }}
+                                        placeholder="New Barber Name"
+                                        className="flex-1 p-3 rounded-lg bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 const input = e.currentTarget;
@@ -623,8 +355,6 @@ export function BarberDashboard() {
                                         }}
                                     />
                                     <button
-                                        className="btn-primary"
-                                        style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
                                         onClick={() => {
                                             const input = document.getElementById('new-barber-name') as HTMLInputElement;
                                             if (input && input.value.trim()) {
@@ -632,138 +362,63 @@ export function BarberDashboard() {
                                                 input.value = '';
                                             }
                                         }}
+                                        className="px-6 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm"
                                     >
                                         Add
                                     </button>
                                 </div>
 
-                                <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    onDragEnd={handleDragEnd}
-                                >
-                                    <SortableContext
-                                        items={barbers.map(b => b.id)}
-                                        strategy={verticalListSortingStrategy}
-                                    >
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                    <SortableContext items={barbers.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                                        <div className="flex flex-col gap-2">
                                             {barbers.map(b => (
                                                 <SortableBarberItem key={b.id} id={b.id} name={b.name} onDelete={() => {
-                                                    if (confirm(`Remove ${b.name}?`)) {
-                                                        queueManager.removeBarber(b.id);
-                                                    }
+                                                    if (confirm(`Remove ${b.name}?`)) queueManager.removeBarber(b.id);
                                                 }} />
                                             ))}
-                                            {barbers.length === 0 && <p style={{ color: '#666', fontStyle: 'italic' }}>No barbers configured.</p>}
                                         </div>
                                     </SortableContext>
                                 </DndContext>
                             </div>
+                        </div>
 
-                            <h3 style={{ color: 'var(--color-gold)', marginBottom: '1rem' }}>Calendar & Estimates</h3>
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Average Cut Time (Minutes)</label>
-                                <input
-                                    type="number"
-                                    value={settings?.averageCutTimeMinutes ?? 20}
-                                    onChange={(e) => queueManager.updateSettings({ averageCutTimeMinutes: parseInt(e.target.value) || 20 })}
-                                    style={{
-                                        padding: '0.8rem',
-                                        borderRadius: '6px',
-                                        background: '#222',
-                                        border: '1px solid #333',
-                                        color: '#fff',
-                                        width: '100%'
-                                    }}
-                                />
-                                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>Used for Calendar slots and Wait Time calculations.</p>
-                            </div>
-
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Remote Booking Buffer (Minutes)</label>
-                                <input
-                                    type="number"
-                                    value={settings?.remoteBufferMinutes ?? 30}
-                                    onChange={(e) => queueManager.updateSettings({ remoteBufferMinutes: parseInt(e.target.value) || 30 })}
-                                    style={{
-                                        padding: '0.8rem',
-                                        borderRadius: '6px',
-                                        background: '#222',
-                                        border: '1px solid #333',
-                                        color: '#fff',
-                                        width: '100%'
-                                    }}
-                                />
-                                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>Safety margin added to "Earliest Available" slot.</p>
-                            </div>
+                        <div className="mt-8 pt-8 border-t border-white/10 opacity-50">
+                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-4">Debug</h3>
+                            <button
+                                className="px-4 py-2 bg-[#0f1115] rounded text-gray-500 text-xs font-bold mr-4 border border-white/5"
+                                onClick={() => {
+                                    const names = ['Alice', 'Bob', 'Charlie', 'Dave', 'Eve', 'Frank'];
+                                    const barberIds = [...barbers.map(b => b.id), 'next_available'];
+                                    queueManager.addClient(names[Math.floor(Math.random() * names.length)], barberIds[Math.floor(Math.random() * barberIds.length)]);
+                                }}
+                            >
+                                + Random
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-red-500/10 text-red-500 rounded text-xs font-bold border border-red-500/20"
+                                onClick={() => { queueManager.reset(); window.location.reload(); }}
+                            >
+                                Reset
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* Debug Controls */}
-            <div style={{ marginTop: '0', padding: '0.5rem 1rem', borderTop: '1px solid #333', opacity: 0.3 }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <span style={{ color: '#666', fontSize: '0.8rem', textTransform: 'uppercase' }}>Debug:</span>
-                    <button
-                        className="btn-secondary"
-                        style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.7rem' }}
-                        onClick={() => {
-                            const names = ['Alice', 'Bob', 'Charlie', 'Dave', 'Eve', 'Frank', 'Grace', 'Heidi'];
-                            const barberIds = [...barbers.map(b => b.id), 'next_available'];
-                            const randomName = names[Math.floor(Math.random() * names.length)];
-                            const randomBarber = barberIds[Math.floor(Math.random() * barberIds.length)];
-                            queueManager.addClient(randomName + ' ' + Math.floor(Math.random() * 100), randomBarber);
-                        }}
-                    >
-                        + Add Random
-                    </button>
-                    <button
-                        className="btn-secondary"
-                        style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.7rem', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
-                        onClick={() => {
-                            queueManager.reset();
-                            window.location.reload();
-                        }}
-                    >
-                        Reset
-                    </button>
-                </div>
-            </div>
         </div>
     );
 }
 
 function SortableBarberItem({ id, name, onDelete }: { id: string, name: string, onDelete: () => void }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({ id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        touchAction: 'none' // Required for pointer sensors
-    };
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+    const style = { transform: CSS.Transform.toString(transform), transition, touchAction: 'none' };
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#333', padding: '0.5rem 1rem', borderRadius: '4px', border: '1px solid #444', marginBottom: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span {...listeners} style={{ cursor: 'grab', fontSize: '1.2rem', color: '#666' }}>☰</span>
-                    <span>{name}</span>
-                </div>
-                <button
-                    onClick={onDelete}
-                    style={{ color: 'var(--color-danger)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
-                    title="Remove Barber"
-                >
-                    ×
-                </button>
+        <div ref={setNodeRef} style={style} {...attributes} className="flex justify-between items-center bg-[#0f1115] p-3 rounded-lg border border-white/5 shadow-sm hover:border-white/10 transition-all">
+            <div className="flex items-center gap-4">
+                <span {...listeners} className="cursor-grab text-gray-600 hover:text-gray-400">☰</span>
+                <span className="font-medium text-gray-300 text-sm">{name}</span>
             </div>
+            <button onClick={onDelete} className="text-red-500/50 bg-transparent border-none cursor-pointer font-bold hover:text-red-500 px-2 text-lg">×</button>
         </div>
     );
 }
@@ -771,26 +426,28 @@ function SortableBarberItem({ id, name, onDelete }: { id: string, name: string, 
 function ClientCard({ client, onEditGroup }: { client: Client, onEditGroup: (client: Client) => void }) {
     const waitTime = Math.floor((Date.now() - client.checkInTime) / 60000);
     return (
-        <div style={{ background: '#222', padding: '1rem', borderRadius: '8px', marginBottom: '0.5rem', border: '1px solid #333', minWidth: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="bg-[#2a2d36] p-4 rounded-xl shadow-sm border border-white/5 hover:border-white/20 transition-colors group">
+            <div className="flex justify-between items-center mb-1">
+                <div className="font-bold text-white text-base truncate flex items-center gap-2">
                     {client.name}
                     {client.remainingSize && client.remainingSize > 1 && (
-                        <span style={{ fontSize: '0.8rem', background: 'var(--color-gold)', color: '#000', padding: '0.1rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }} onClick={() => onEditGroup(client)} title="Edit Group Size">
-                            +{client.remainingSize - 1} ✎
+                        <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-bold cursor-pointer hover:bg-blue-500/30" onClick={() => onEditGroup(client)}>
+                            +{client.remainingSize - 1} 👥
                         </span>
                     )}
                 </div>
+                <div className="text-xs text-white/20 font-mono font-bold group-hover:text-blue-400 transition-colors">
+                    #{client.id.slice(-3)}
+                </div>
+            </div>
+            <div className="text-xs text-gray-500 font-medium flex justify-between">
+                <span>Waiting {waitTime}m</span>
                 {client.remainingSize && client.remainingSize > 1 && (
-                    <button
-                        onClick={() => onEditGroup(client)}
-                        style={{ background: 'transparent', border: '1px solid #444', color: '#888', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
-                        Edit Size
+                    <button onClick={() => onEditGroup(client)} className="text-gray-500 hover:text-blue-400 underline decoration-dotted bg-transparent border-none cursor-pointer p-0">
+                        Edit
                     </button>
                 )}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#666' }}>{waitTime}m ago</div>
         </div>
     );
 }

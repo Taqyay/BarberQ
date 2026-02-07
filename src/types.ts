@@ -16,6 +16,8 @@ export interface Client {
   originalCheckInTime?: number; // Track initial join time for priority leapfrog
   travelTime?: '5' | '15' | '30+';
   reservationTime?: number; // Smart Timeslot: Timestamp of booking slot
+  serviceStartTime?: number; // Timestamp when they sat in the chair (for accurate calendar rendering)
+  serviceEndTime?: number; // Timestamp when they finished (for history)
 }
 
 export interface Settings {
@@ -23,6 +25,8 @@ export interface Settings {
   snoozeDurationMinutes: number;
   averageCutTimeMinutes: number;
   remoteBufferMinutes: number; // Configurable buffer for smart timeslots
+  firstCutTime: number; // Hour of day (0-23) for opening
+  lastCutTime: number; // Hour of day (0-23) for last booking
 }
 
 export interface BarberState {

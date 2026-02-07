@@ -10,7 +10,14 @@ export class QueueManager {
   private state: QueueState = {
     clients: [],
     barbers: [],
-    settings: { snoozeEnabled: true, snoozeDurationMinutes: 5, averageCutTimeMinutes: 20, remoteBufferMinutes: 30 }
+    settings: {
+      snoozeEnabled: true,
+      snoozeDurationMinutes: 5,
+      averageCutTimeMinutes: 20,
+      remoteBufferMinutes: 30,
+      firstCutTime: 9,
+      lastCutTime: 18
+    }
   };
   private isConnected = false;
   private listeners: (() => void)[] = [];

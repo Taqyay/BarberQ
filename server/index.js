@@ -25,7 +25,9 @@ const DEFAULT_SETTINGS = {
   snoozeEnabled: true,
   snoozeDurationMinutes: 5,
   averageCutTimeMinutes: 20,
-  remoteBufferMinutes: 30 // Default 30 min buffer
+  remoteBufferMinutes: 30, // Default 30 min buffer
+  firstCutTime: 9,
+  lastCutTime: 18
 };
 
 let state = {

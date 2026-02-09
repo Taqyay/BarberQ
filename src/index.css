@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+@theme {
+  /* Google Material Design Colors */
+  --color-google-blue: #4285F4;
+  --color-google-red: #EA4335;
+  --color-google-yellow: #FBBC05;
+  --color-google-green: #34A853;
+
+  --color-google-gray-50: #F8F9FA;
+  --color-google-gray-100: #F1F3F4;
+  --color-google-gray-200: #E8EAED;
+  --color-google-gray-300: #DADCE0;
+  --color-google-gray-400: #BDC1C6;
+  --color-google-gray-500: #9AA0A6;
+  --color-google-gray-600: #80868B;
+  --color-google-gray-700: #5F6368;
+  --color-google-gray-800: #3C4043;
+  --color-google-gray-900: #202124;
+
+  /* Google Shadows */
+  --shadow-google: 0 1px 2px 0 rgba(60, 64, 67, .3), 0 1px 3px 1px rgba(60, 64, 67, .15);
+  --shadow-google-hover: 0 1px 3px 0 rgba(60, 64, 67, .3), 0 4px 8px 3px rgba(60, 64, 67, .15);
+
+  /* Google Border Radius */
+  --radius-google: 8px;
+
+  /* Fonts */
+  --font-family-sans: 'Inter', 'sans-serif';
+  --font-family-mono: 'JetBrains Mono', 'monospace';
+}
+
 :root {
   /* Premium Palette */
   --color-bg-dark: #0f1115;
@@ -41,6 +71,7 @@
 
 
 }
+
 
 /* M3 Theme Removed */
 

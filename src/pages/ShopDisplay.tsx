@@ -1,156 +1,205 @@
 import { useQueue } from '../hooks/useQueue';
 import { sortByEffectiveTime } from '../utils/clientSort';
+import { simulationService } from '../services/simulation';
+
+// M3 Filled Card - Surface Container Highest with no elevation
+const M3FilledCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div style={{
+        backgroundColor: 'var(--md-sys-color-surface-container-highest, #E6E0E9)',
+        borderRadius: '12px',
+        overflow: 'hidden'
+    }}>
+        {children}
+    </div>
+);
+
+// M3 Elevated Card - Surface Container Low with Level 1 elevation
+const M3ElevatedCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div style={{
+        backgroundColor: 'var(--md-sys-color-surface-container-low, #F7F2FA)',
+        borderRadius: '12px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15)',
+        overflow: 'hidden'
+    }}>
+        {children}
+    </div>
+);
 
 export function ShopDisplay() {
     const { clients, barbers } = useQueue();
 
+    const handleUATTrigger = () => {
+        console.log('🚀 UAT Time Warp Initiated from ShopDisplay');
+        simulationService.start();
+    };
+
     return (
-        <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-8 font-sans text-neutral-900">
-            {/* TV FRAME: 16:9 Aspect Ratio Simulation */}
-            <div className="w-full max-w-[1400px] aspect-video bg-white rounded-3xl shadow-2xl border border-neutral-200 overflow-hidden flex">
+        <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '16px',
+            padding: '16px',
+            minHeight: '100vh',
+            backgroundColor: 'var(--md-sys-color-surface, #FEF7FF)'
+        }}>
+            {/* BARBER COLUMNS - Each in M3 Filled Card */}
+            {barbers.map((barber) => {
+                const barberId = barber.id;
+                const barberName = barber.name;
+                const isAvailable = barber.isAvailable;
 
-                {/* LEFT BRAND PANEL: Minimalist & Informational */}
-                <aside className="w-1/4 bg-[#FAFAFA] p-12 flex flex-col justify-between border-r border-neutral-200">
-                    <div className="space-y-10">
-                        <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-amber-600 font-bold mb-2">Since 2026</p>
-                            <h1 className="text-5xl font-serif text-neutral-900 leading-none tracking-tight">
-                                GOLDEN<br />BARBERS
-                            </h1>
-                            <div className="w-16 h-1 bg-amber-500 mt-6" />
-                        </div>
+                const inChair = clients.find(c => c.status === 'in_chair' && c.assignedBarber === barberId);
 
-                        <div className="space-y-6">
-                            <div className="w-48 h-48 bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 flex items-center justify-center">
-                                {/* QR CODE PLACEHOLDER */}
-                                <div className="w-full h-full bg-neutral-900 rounded-xl flex items-center justify-center">
-                                    <span className="text-xs text-neutral-500 font-mono tracking-widest">QR CODE</span>
+                const waiting = clients
+                    .filter(c => {
+                        const match = c.status === 'waiting' && ((c.barberPreference === barberId) || (c.barberPreference === 'next_available'));
+                        if (!match) return false;
+
+                        if (c.reservationTime) {
+                            const now = Date.now();
+                            const visibleThreshold = c.reservationTime - (15 * 60 * 1000);
+                            if (now < visibleThreshold) return false;
+                        }
+
+                        return true;
+                    })
+                    .sort(sortByEffectiveTime);
+
+                return (
+                    <M3FilledCard key={barberId}>
+                        {/* BarberHeader - Dark grey with Archivo font */}
+                        <div style={{ position: 'relative' }}>
+                            {/* Header */}
+                            <div style={{
+                                height: '200px',
+                                padding: '16px',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                justifyContent: 'space-between',
+                                backgroundColor: '#3C3C3C'
+                            }}>
+                                <span style={{ fontFamily: 'Archivo, sans-serif', fontSize: '22px', fontWeight: 600, color: '#FFFFFF' }}>
+                                    {barberName}
+                                </span>
+                                {/* Status Chip: Filled purple for Active, transparent otherwise */}
+                                <span style={{
+                                    padding: '6px 16px',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    backgroundColor: isAvailable ? '#6750A4' : 'transparent',
+                                    color: isAvailable ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
+                                    border: isAvailable ? 'none' : '1px solid rgba(255,255,255,0.3)'
+                                }}>
+                                    {isAvailable ? 'Active' : 'Away'}
+                                </span>
+                            </div>
+
+                            {/* In-Chair Card - 65% above, 35% below header bottom */}
+                            <div style={{
+                                position: 'absolute',
+                                bottom: '-61px', // 35% of 175px = 61px below header edge
+                                left: '16px',
+                                right: '16px',
+                                height: '175px',
+                                backgroundColor: 'var(--md-sys-color-surface-container-low, #F7F2FA)',
+                                borderRadius: '12px',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 2px 6px 2px rgba(0,0,0,0.15)', // Level 2
+                                zIndex: 10,
+                                padding: '16px'
+                            }}>
+                                {/* Progress indicator - top right */}
+                                <div style={{ position: 'absolute', top: '12px', right: '12px' }}>
+                                    <md-circular-progress value={0.5} />
                                 </div>
-                            </div>
-                            <p className="text-sm text-neutral-500 leading-relaxed max-w-[200px] font-medium">
-                                Scan to join the queue or book your next appointment instantly.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* SNOOZE / HOLDING SECTION - If any snoozed clients */}
-                    {clients.some(c => c.status === 'snoozed') && (
-                        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                                <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Holding Area</span>
-                            </div>
-                            <div className="space-y-2">
-                                {clients.filter(c => c.status === 'snoozed').map(c => (
-                                    <p key={c.id} className="text-sm text-neutral-700 font-medium flex justify-between">
-                                        {c.name}
-                                        <span className="text-amber-600/60 font-mono text-xs">
-                                            ({Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m)
-                                        </span>
-                                    </p>
-                                ))}
+                                {inChair ? (
+                                    <div style={{ color: '#000000', fontWeight: 700, fontSize: '16px' }}>
+                                        In-Chair: {inChair.name}
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#000000', fontWeight: 700, fontSize: '16px' }}>Ready for Next!</div>
+                                )}
                             </div>
                         </div>
-                    )}
-                </aside>
 
-                {/* MAIN QUEUE: Three Column Grid */}
-                <main className="w-3/4 p-12 bg-white">
-                    <div className="grid grid-cols-3 gap-12 h-full">
+                        {/* Spacer for overlapping card */}
+                        <div style={{ height: '77px' }} /> {/* 61px overlap + 16px gap */}
 
-                        {/* COLUMN: DYNAMIC FOR EACH BARBER */}
-                        {barbers.map((barber, i) => {
-                            const barberId = barber.id;
-                            const barberName = barber.name;
-                            const isAvailable = barber.isAvailable;
+                        <md-divider />
 
-                            const inChair = clients.find(c => c.status === 'in_chair' && c.assignedBarber === barberId);
+                        {/* Waiting Clients Section */}
+                        <div style={{ padding: '16px' }}>
+                            <span style={{ marginBottom: '12px', display: 'block', color: '#000000', fontWeight: 600, fontSize: '14px' }}>
+                                Waiting Clients:
+                            </span>
+                            {waiting.length === 0 ? (
+                                <md-list>
+                                    <md-list-item>
+                                        <span slot="headline">No clients waiting</span>
+                                    </md-list-item>
+                                </md-list>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {waiting.map((client) => (
+                                        <M3ElevatedCard key={client.id}>
+                                            <md-list>
+                                                <md-list-item>
+                                                    <span slot="headline">{client.name}</span>
+                                                    {client.source === 'remote' && (
+                                                        <md-assist-chip slot="end" label="Remote" />
+                                                    )}
+                                                </md-list-item>
+                                            </md-list>
+                                        </M3ElevatedCard>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </M3FilledCard>
+                );
+            })}
 
-                            const waiting = clients
-                                .filter(c => {
-                                    // Rule 1: Must be waiting and match barber preference
-                                    const match = c.status === 'waiting' && ((c.barberPreference === barberId) || (c.barberPreference === 'next_available'));
-                                    if (!match) return false;
+            {/* SIDEBAR: Next Available - M3 Filled Card */}
+            <M3FilledCard>
+                <div style={{ padding: '16px' }}>
+                    <span className="md-typescale-title-large">Next Available</span>
+                </div>
 
-                                    // Rule 2: Stealth Visibility (Smart Timeslots)
-                                    // Hide if reservation is more than 15 mins in future
-                                    if (c.reservationTime) {
-                                        const now = Date.now();
-                                        const visibleThreshold = c.reservationTime - (15 * 60 * 1000); // 15 mins before slot
-                                        if (now < visibleThreshold) return false;
-                                    }
+                <md-divider />
 
-                                    return true;
-                                })
-                                .sort(sortByEffectiveTime);
+                <div style={{ padding: '16px' }}>
+                    <span className="md-typescale-label-large">Walk-ins</span>
+                    <md-list>
+                        {barbers.map((barber, index) => (
+                            <md-list-item key={barber.id}>
+                                <span slot="headline">{barber.name}</span>
+                                <span slot="trailing-supporting-text">{(index + 1) * 15} min</span>
+                            </md-list-item>
+                        ))}
+                    </md-list>
+                </div>
 
-                            return (
-                                <section key={i} className={`flex flex-col h-full transition-opacity duration-500 ${isAvailable ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-                                    {/* BARBER HEADER */}
-                                    <div className="flex items-center gap-4 mb-8 pb-6 border-b border-neutral-100">
-                                        <div className="relative">
-                                            <div className="w-16 h-16 rounded-full bg-neutral-200 border-2 border-white shadow-md overflow-hidden flex items-center justify-center text-neutral-400 font-serif text-2xl">
-                                                {barberName[0]}
-                                            </div>
-                                            {isAvailable && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />}
-                                        </div>
-                                        <div>
-                                            <h2 className="text-xl font-bold text-neutral-900 tracking-tight">{barberName}</h2>
-                                            <span className="text-xs uppercase tracking-widest text-neutral-400 font-bold">{isAvailable ? 'Available' : 'Unavailable'}</span>
-                                        </div>
-                                    </div>
+                <md-divider />
 
-                                    {/* NOW SERVING CARD */}
-                                    <div className="bg-neutral-900 rounded-2xl p-6 text-center shadow-lg mb-8 relative overflow-hidden group">
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />
-                                        <p className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-bold mb-2">Serving Now</p>
-                                        <p className="text-3xl font-serif text-white truncate leading-tight">
-                                            {inChair ? inChair.name : <span className="text-neutral-700 text-2xl font-sans font-light">Chair Open</span>}
-                                        </p>
-                                    </div>
-
-                                    {/* UP NEXT LIST */}
-                                    <div className="flex-1 overflow-hidden flex flex-col">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <p className="text-xs uppercase tracking-widest text-neutral-400 font-bold">Up Next</p>
-                                            <span className="bg-neutral-100 text-neutral-500 text-xs px-2 py-1 rounded-md font-bold">{waiting.length}</span>
-                                        </div>
-
-                                        <ul className="space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                                            {waiting.length === 0 && (
-                                                <li className="flex flex-col items-center justify-center h-32 text-neutral-300 border-2 border-dashed border-neutral-100 rounded-xl">
-                                                    <span className="text-sm font-medium">No clients waiting</span>
-                                                </li>
-                                            )}
-                                            {waiting.map((client, idx) => (
-                                                <li key={client.id} className="flex items-center justify-between bg-white px-1 py-1 group">
-                                                    <div className="flex items-center gap-3 w-full">
-                                                        <span className="text-neutral-300 font-bold font-mono text-sm w-4">
-                                                            {idx + 1}
-                                                        </span>
-                                                        <span className="text-lg text-neutral-700 font-medium truncate flex-1 group-hover:text-black transition-colors">
-                                                            {client.name}
-                                                            {client.barberPreference === 'next_available' && (
-                                                                <span className="ml-2 text-[10px] text-neutral-400 font-normal uppercase border border-neutral-200 px-1 rounded align-middle">Any</span>
-                                                            )}
-                                                        </span>
-                                                        {client.remainingSize && client.remainingSize > 1 && (
-                                                            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-bold">
-                                                                +{client.remainingSize - 1}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </section>
-                            );
-                        })}
-
+                <div style={{ padding: '16px' }}>
+                    <span className="md-typescale-label-large">Book an Appointment</span>
+                    <div style={{
+                        marginTop: '16px',
+                        aspectRatio: '1',
+                        backgroundColor: 'var(--md-sys-color-on-surface, #1D1B20)',
+                        borderRadius: '12px'
+                    }}>
+                        {/* QR Code placeholder */}
                     </div>
-                </main>
-            </div>
+                </div>
+            </M3FilledCard>
+
+            {/* M3 FAB for UAT */}
+            <md-fab
+                label="TIME WARP"
+                onClick={handleUATTrigger}
+                style={{ position: 'fixed', bottom: '16px', right: '16px' } as React.CSSProperties}
+            />
         </div>
     );
 }

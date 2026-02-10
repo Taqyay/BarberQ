@@ -8,6 +8,35 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { simulationService } from '../services/simulation'; // Import simulationService
+
+// M3 Filled Card - Surface Container Highest
+const M3FilledCard: React.FC<{ children: React.ReactNode, style?: React.CSSProperties, onClick?: () => void }> = ({ children, style, onClick }) => (
+    <div
+        onClick={onClick}
+        style={{
+            backgroundColor: '#1a1d24',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,0.05)',
+            ...style
+        }}>
+        {children}
+    </div>
+);
+
+// M3 Elevated Card - Surface Container Low
+const M3ElevatedCard: React.FC<{ children: React.ReactNode, style?: React.CSSProperties }> = ({ children, style }) => (
+    <div style={{
+        backgroundColor: '#21252b',
+        borderRadius: '12px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        overflow: 'hidden',
+        ...style
+    }}>
+        {children}
+    </div>
+);
 
 export function BarberDashboard() {
     const { clients, barbers, settings } = useQueue();
@@ -83,90 +112,86 @@ export function BarberDashboard() {
         clients.find(c => c.status === 'in_chair' && (c.assignedBarber === barberId || (c.barberPreference === barberId && !c.assignedBarber)));
 
     return (
-        <div className="h-screen flex flex-col p-4 overflow-hidden bg-[#0f1115] font-sans text-white">
+        <div className="h-screen flex flex-col p-6 overflow-hidden bg-[#0f1115] font-sans text-white">
             {/* Header & Tabs */}
-            <div className="flex justify-between items-center mb-4 bg-[#1a1d24] p-4 rounded-xl shadow-sm border border-white/5">
+            <div className="flex justify-between items-center mb-6 bg-[#1a1d24] p-4 rounded-xl shadow-sm border border-white/5">
                 <div>
-                    <h1 className="text-2xl font-bold text-white m-0 leading-tight">STAFF DASHBOARD</h1>
-                    <div className="flex items-center gap-4 mt-1">
-                        <p className="m-0 text-gray-400 text-sm">
+                    <h1 className="text-3xl font-bold text-white m-0 leading-tight tracking-tight">STAFF DASHBOARD</h1>
+                    <div className="flex items-center gap-4 mt-2">
+                        <p className="m-0 text-gray-400 text-sm font-medium">
                             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                         <ConnectionStatus showLabel={false} />
                     </div>
                 </div>
-                <div className="flex gap-4 bg-black/20 p-1.5 rounded-lg border border-white/5">
+                <div className="flex items-center gap-6">
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="px-6 py-2 rounded-md bg-[#d4af37] text-black border-none font-bold cursor-pointer flex items-center gap-2 hover:bg-[#f3c645] transition-colors shadow-lg"
+                        className="flex items-center gap-2 bg-[#d4af37] text-black px-4 py-2 rounded-full font-bold hover:bg-[#b4941f] transition-colors"
                     >
-                        <span>+ Walk-in</span>
+                        <span>+</span> Walk-in
                     </button>
-                    <button
-                        onClick={() => setActiveTab('queue')}
-                        className={`px-6 py-2 rounded-md border-none font-bold cursor-pointer transition-all ${activeTab === 'queue' ? 'bg-[#d4af37] text-black shadow-md' : 'bg-transparent text-gray-500 hover:text-gray-300'
-                            }`}
-                    >
-                        Live Queue
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('calendar')}
-                        className={`px-6 py-2 rounded-md border-none font-bold cursor-pointer transition-all ${activeTab === 'calendar' ? 'bg-[#d4af37] text-black shadow-md' : 'bg-transparent text-gray-500 hover:text-gray-300'
-                            }`}
-                    >
-                        Calendar
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('settings')}
-                        className={`px-6 py-2 rounded-md border-none font-bold cursor-pointer transition-all ${activeTab === 'settings' ? 'bg-[#d4af37] text-black shadow-md' : 'bg-transparent text-gray-500 hover:text-gray-300'
-                            }`}
-                    >
-                        Settings
-                    </button>
+
+                    <div className="flex bg-black/20 p-1 rounded-full border border-white/5">
+                        <button
+                            onClick={() => setActiveTab('queue')}
+                            className={`px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'queue' ? 'bg-[#2a2d36] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Queue
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('calendar')}
+                            className={`px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'calendar' ? 'bg-[#2a2d36] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Calendar
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('settings')}
+                            className={`px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-[#2a2d36] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Settings
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Manual Entry Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-                    <div className="bg-[#1a1d24] p-8 rounded-xl w-full max-w-md shadow-xl border border-white/10">
-                        <h2 className="text-white m-0 mb-6 font-bold text-xl border-b border-white/10 pb-4">
-                            {prefillTime ? `Book Appointment` : `Add Walk-in Client`}
-                        </h2>
+                    <div className="bg-[#1e2229] p-8 rounded-2xl w-full max-w-md shadow-2xl border border-white/10 flex flex-col gap-6">
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-white m-0 font-bold text-2xl">
+                                {prefillTime ? `Book Appointment` : `Add Walk-in`}
+                            </h2>
+                        </div>
 
                         {prefillTime && (
-                            <div className="mb-4 p-3 bg-[#d4af37]/10 rounded-lg border-l-4 border-[#d4af37]">
-                                <p className="m-0 text-sm text-gray-300">
-                                    <strong>Time:</strong> {prefillTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} <br />
-                                    <strong>Barber:</strong> {newPreference}
+                            <div className="p-4 bg-[#d4af37]/10 rounded-xl border border-[#d4af37]/30">
+                                <p className="m-0 text-sm text-[#d4af37]">
+                                    <strong>{new Date(prefillTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> with <strong>{newPreference}</strong>
                                 </p>
                             </div>
                         )}
 
-                        <div className="mb-4">
-                            <label className="block text-gray-400 mb-2 text-sm font-medium">Client Name</label>
+                        <div>
+                            <label className="block text-gray-400 text-sm font-medium mb-2">Client Name</label>
                             <input
-                                autoFocus
                                 type="text"
+                                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
                                 value={newClientName}
-                                onChange={e => setNewClientName(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') handleAddWalkIn();
-                                }}
-                                placeholder="Enter name..."
-                                className="w-full p-4 rounded-xl bg-[#0f1115] border border-white/10 text-white text-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                onInput={(e: any) => setNewClientName(e.target.value)}
+                                onKeyDown={(e: any) => { if (e.key === 'Enter') handleAddWalkIn(); }}
                             />
                         </div>
 
-                        <div className="mb-4">
-                            <label className="block text-gray-400 mb-2 text-sm font-medium">Group Size</label>
+                        <div>
+                            <label className="block text-gray-400 mb-3 text-sm font-medium">Group Size</label>
                             <div className="flex gap-2">
                                 {[1, 2, 3, 4, 5].map(num => (
                                     <button
                                         key={num}
                                         onClick={() => setNewGroupSize(num)}
-                                        className={`flex-1 p-3 rounded-lg border-none font-bold cursor-pointer transition-all ${newGroupSize === num ? 'bg-[#d4af37] text-black shadow-md' : 'bg-[#0f1115] text-gray-500 hover:bg-[#2a2d36]'
-                                            }`}
+                                        className={`w-10 h-10 rounded-full font-bold transition-colors ${newGroupSize === num ? 'bg-[#d4af37] text-black' : 'bg-black/20 text-gray-400 hover:bg-white/10'}`}
                                     >
                                         {num}
                                     </button>
@@ -174,34 +199,35 @@ export function BarberDashboard() {
                             </div>
                         </div>
 
-                        <div className="mb-8">
-                            <label className="block text-gray-400 mb-2 text-sm font-medium">Preference</label>
-                            <select
-                                value={newPreference}
-                                onChange={e => setNewPreference(e.target.value as BarberId)}
-                                className="w-full p-4 rounded-xl bg-[#0f1115] border border-white/10 text-white text-base outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
-                            >
-                                <option value="next_available">Next Available</option>
-                                {barbers.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {!prefillTime && (
+                            <div>
+                                <label className="block text-gray-400 text-sm font-medium mb-2">Barber Preference</label>
+                                <select
+                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                    value={newPreference}
+                                    onChange={(e) => setNewPreference(e.target.value as BarberId)}
+                                >
+                                    <option value="next_available">Next Available</option>
+                                    {barbers.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 justify-end mt-4">
                             <button
                                 onClick={() => { setIsModalOpen(false); setPrefillTime(null); }}
-                                className="flex-1 p-4 rounded-xl bg-transparent text-gray-400 border border-white/10 cursor-pointer font-bold hover:bg-white/5"
+                                className="px-4 py-2 text-gray-400 hover:text-white font-medium"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleAddWalkIn}
                                 disabled={!newClientName.trim()}
-                                className={`flex-1 p-4 rounded-xl border-none font-bold cursor-pointer shadow-md transition-all ${newClientName.trim() ? 'bg-[#d4af37] text-black hover:bg-[#f3c645]' : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                    }`}
+                                className="bg-[#d4af37] text-black px-6 py-2 rounded-lg font-bold hover:bg-[#b4941f] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {prefillTime ? 'Book Slot' : 'Add Client'}
+                                {prefillTime ? 'Book Slot' : 'Check In'}
                             </button>
                         </div>
                     </div>
@@ -211,31 +237,28 @@ export function BarberDashboard() {
             {/* Edit Group Size Modal */}
             {editingGroupClient && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-                    <div className="bg-[#1a1d24] p-8 rounded-xl w-full max-w-md shadow-xl border border-white/10">
-                        <h2 className="text-white m-0 mb-4 font-bold text-xl">Edit Group Size</h2>
-                        <p className="text-gray-400 mb-6">
+                    <div className="bg-[#1e2229] p-8 rounded-2xl w-full max-w-md shadow-2xl border border-white/10 flex flex-col gap-6">
+                        <h2 className="text-white m-0 font-bold text-2xl">Edit Group Size</h2>
+                        <p className="text-gray-400">
                             Reduce group size for <strong>{editingGroupClient.name}</strong>.<br />
                             <span className="text-xs text-gray-500">Current Remaining: {editingGroupClient.remainingSize}</span>
                         </p>
 
-                        <div className="grid grid-cols-4 gap-2 mb-8">
+                        <div className="flex gap-2 flex-wrap">
                             {Array.from({ length: (editingGroupClient.remainingSize || 0) - 1 }, (_, i) => i + 1).map(size => (
                                 <button
                                     key={size}
                                     onClick={() => handleUpdateGroupSize(size)}
-                                    className="p-3 rounded-lg bg-[#0f1115] text-white border border-white/10 cursor-pointer font-bold hover:bg-[#d4af37] hover:text-black hover:border-[#d4af37] transition-all"
+                                    className="px-4 py-2 rounded-full bg-black/20 text-gray-300 hover:bg-[#d4af37] hover:text-black transition-colors font-bold"
                                 >
                                     {size}
                                 </button>
                             ))}
                         </div>
 
-                        <button
-                            onClick={() => setEditingGroupClient(null)}
-                            className="w-full p-4 rounded-xl bg-transparent text-gray-400 border border-white/10 cursor-pointer hover:bg-white/5"
-                        >
-                            Cancel
-                        </button>
+                        <div className="flex justify-end">
+                            <button onClick={() => setEditingGroupClient(null)} className="text-gray-400 hover:text-white px-4 py-2">Cancel</button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -243,194 +266,206 @@ export function BarberDashboard() {
             {activeTab === 'queue' ? (
                 <>
                     {/* Shift Manager Section */}
-                    <div className="mb-4 bg-[#1a1d24] p-6 rounded-xl shadow-sm border border-white/5 flex-shrink-0">
-                        <h3 className="mb-4 text-white font-bold text-lg uppercase tracking-wider">Shift Manager</h3>
-                        <div className="flex gap-4">
-                            {barbers.map(b => (
-                                <button
-                                    key={b.id}
-                                    onClick={() => queueManager.toggleBarberAvailability(b.id, !b.isAvailable)}
-                                    className={`flex-1 h-16 rounded-xl text-base font-bold border-none transition-all shadow-sm ${b.isAvailable ? 'bg-[#d4af37]/20 text-[#d4af37] ring-2 ring-[#d4af37]/50' : 'bg-[#0f1115] text-gray-600 grayscale'
-                                        }`}
-                                >
-                                    {b.name} <span className="block text-xs mt-1 opacity-70 uppercase tracking-widest">{b.isAvailable ? 'ACTIVE' : 'OFF'}</span>
-                                </button>
-                            ))}
+                    <div className="mb-6">
+                        <div className="bg-[#1a1d24] p-4 rounded-xl border border-white/5 flex items-center gap-6 shadow-sm">
+                            <h3 className="text-white font-bold text-sm uppercase tracking-wider m-0">Shift Manager</h3>
+                            <div className="h-6 w-px bg-white/10"></div>
+                            <div className="flex gap-2">
+                                {barbers.map(b => (
+                                    <button
+                                        key={b.id}
+                                        onClick={() => queueManager.toggleBarberAvailability(b.id, !b.isAvailable)}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${b.isAvailable ? 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'}`}
+                                    >
+                                        {b.name}: {b.isAvailable ? 'Active' : 'Away'}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
                     {/* Main Columns */}
-                    <div className="grid grid-cols-4 gap-4 flex-1 min-h-0 overflow-hidden">
+                    <div className="grid grid-cols-4 gap-6 flex-1 min-h-0 overflow-hidden">
                         {/* Global Pool Column */}
-                        <div className="flex flex-col h-full min-w-0 bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 overflow-hidden">
-                            <div className="p-4 border-b border-white/5 bg-black/20">
-                                <h2 className="text-gray-400 font-bold text-lg m-0 truncate uppercase tracking-wide">Next Available</h2>
-                                <span className="text-xs font-bold text-gray-500">{globalPool.length} waiting</span>
+                        <M3FilledCard style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                            <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
+                                <h2 className="text-gray-400 font-bold text-sm m-0 truncate uppercase tracking-widest" style={{ fontFamily: 'Archivo, sans-serif' }}>Next Available</h2>
+                                <span className="bg-white/10 text-gray-300 px-2 py-1 rounded-full text-xs font-bold">{globalPool.length}</span>
                             </div>
-                            <div className="p-4 overflow-y-auto flex-1 space-y-3">
+
+                            <div className="p-4 overflow-y-auto flex-1 space-y-3 custom-scrollbar">
                                 {globalPool.map(c => (
                                     <ClientCard key={c.id} client={c} onEditGroup={setEditingGroupClient} />
                                 ))}
-                                {globalPool.length === 0 && <div className="text-gray-600 italic text-center py-8">No customers in queue</div>}
+                                {globalPool.length === 0 && <div className="text-gray-600 italic text-center py-8 text-sm">Queue Empty</div>}
 
                                 {/* Snoozed Next Available Clients */}
                                 {clients.some(c => c.status === 'snoozed' && c.barberPreference === 'next_available') && (
-                                    <div className="mt-4 border-t border-white/10 pt-2">
-                                        <h4 className="text-yellow-500 mb-2 text-xs font-bold uppercase tracking-widest">SNOOZED / HOLDING</h4>
+                                    <div className="mt-4 border-t border-white/10 pt-4">
+                                        <h4 className="text-[#d4af37] mb-3 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                            HOLDING
+                                        </h4>
                                         {clients.filter(c => c.status === 'snoozed' && c.barberPreference === 'next_available').map(c => (
-                                            <div key={c.id} className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-2 mb-2">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="font-bold text-sm text-gray-200">{c.name}</span>
-                                                    <button
-                                                        onClick={() => queueManager.reactivateClient(c.id)}
-                                                        className="bg-yellow-500 text-black border-none rounded px-2 py-1 text-xs font-bold cursor-pointer hover:bg-yellow-400"
-                                                    >
-                                                        REACTIVATE
-                                                    </button>
+                                            <div key={c.id} className="bg-[#2a2d36] rounded-lg p-3 mb-2 flex justify-between items-center border-l-2 border-[#d4af37]">
+                                                <div>
+                                                    <span className="font-bold text-sm text-gray-200 block">{c.name}</span>
+                                                    <span className="text-xs text-gray-500">Expires in ~{Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m</span>
                                                 </div>
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    Auto-cancel in ~{Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m
-                                                </div>
+                                                <button onClick={() => queueManager.reactivateClient(c.id)} className="text-[#d4af37] text-xs font-bold hover:underline">RE-ADD</button>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </M3FilledCard>
 
                         {/* Barber Columns */}
                         {barbers.map(barber => {
                             const queue = getQueueFor(barber.id);
                             const inChair = getInChair(barber.id);
-                            // Snoozed: Assigned to this barber OR (No assignment AND Preference is this barber)
                             const snoozed = clients.filter(c => c.status === 'snoozed' && (c.assignedBarber === barber.id || (!c.assignedBarber && c.barberPreference === barber.id)));
 
                             return (
-                                <div key={barber.id} className={`flex flex-col h-full min-w-0 bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 overflow-hidden transition-opacity ${barber.isAvailable ? 'opacity-100' : 'opacity-60'}`}>
-                                    <header className="p-4 border-b border-white/5 bg-black/20">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <h2 className="text-xl font-bold text-white m-0 truncate uppercase">{barber.name}</h2>
-                                            {!barber.isAvailable && <span className="bg-red-500/20 text-red-500 px-2 py-0.5 rounded text-xs font-bold">OFF</span>}
+                                <M3FilledCard key={barber.id} style={{
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    opacity: barber.isAvailable ? 1 : 0.6,
+                                    filter: barber.isAvailable ? 'none' : 'grayscale(100%)',
+                                    transition: 'all 0.3s'
+                                }}>
+                                    <div className="p-4 bg-black/20 border-b border-white/5">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${barber.isAvailable ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
+                                                <h2 className="text-lg font-bold text-white m-0" style={{ fontFamily: 'Archivo, sans-serif' }}>{barber.name}</h2>
+                                            </div>
+                                            <button onClick={() => queueManager.toggleBarberAvailability(barber.id, !barber.isAvailable)} className={`px-3 py-1 rounded-full text-[10px] font-bold cursor-pointer transition-colors uppercase tracking-wider ${barber.isAvailable ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                                {barber.isAvailable ? 'Active' : 'Away'}
+                                            </button>
                                         </div>
-                                        <div className="flex gap-2">
+
+                                        {inChair ? (
+                                            <div className="bg-[#1e2229] p-4 rounded-xl border border-white/5 shadow-inner relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 bottom-0 w-1 bg-[#d4af37]"></div>
+                                                <div className="flex justify-between items-start mb-4 pl-2">
+                                                    <div>
+                                                        <span className="text-[10px] text-[#d4af37] font-bold uppercase tracking-widest block mb-1">Serving</span>
+                                                        <div className="text-white font-bold text-xl">{inChair.name}</div>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 font-mono font-bold bg-black/40 px-2 py-1 rounded flex items-center gap-1">
+                                                        {Math.floor((Date.now() - (inChair.serviceStartTime || Date.now())) / 60000)}m
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3 pl-2">
+                                                    <button onClick={() => queueManager.snoozeClient(inChair.id)} className="border border-white/10 text-gray-400 rounded-lg py-2 text-sm font-bold hover:bg-white/5 hover:text-white transition-colors">Not Here</button>
+                                                    <button onClick={() => queueManager.finishClient(inChair.id)} className="bg-[#6750A4] text-white rounded-lg py-2 text-sm font-bold hover:bg-[#5f4996] transition-colors shadow-lg shadow-[#6750A4]/20">Done</button>
+                                                </div>
+                                            </div>
+                                        ) : (
                                             <button
                                                 onClick={() => queueManager.callNext(barber.id)}
-                                                className="flex-1 py-9 bg-[#d4af37] text-black hover:bg-[#f3c645] text-sm font-bold border-none rounded-lg cursor-pointer transition-colors shadow-sm uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
                                                 disabled={!barber.isAvailable}
+                                                className="w-full bg-[#d4af37] text-black font-bold py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#b4941f] transition-colors shadow-lg shadow-[#d4af37]/20"
                                             >
-                                                CALL NEXT
+                                                Call Next
                                             </button>
-                                            <button
-                                                onClick={() => inChair && queueManager.snoozeClient(inChair.id)}
-                                                disabled={!inChair}
-                                                className={`px-4 py-9 text-sm font-bold border-none rounded-lg cursor-pointer transition-colors shadow-sm uppercase tracking-wide ${inChair ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' : 'bg-gray-800 text-gray-600 cursor-default'
-                                                    }`}
-                                                title="Mark as Not Here (Snooze)"
-                                            >
-                                                Not Here
-                                            </button>
-                                        </div>
-                                    </header>
-
-                                    <div className="p-4 flex-1 overflow-y-auto bg-black/20 space-y-3">
-                                        {inChair && (
-                                            <div className="mb-4 bg-[#d4af37]/10 border-l-4 border-[#d4af37] rounded-r-lg p-4 shadow-sm">
-                                                <span className="text-xs font-bold text-[#d4af37] uppercase tracking-widest block mb-1">IN CHAIR</span>
-                                                <div className="text-lg font-bold text-white truncate">{inChair.name}</div>
-                                            </div>
                                         )}
+                                    </div>
 
-                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">WAITING ({queue.length})</h4>
+                                    <div className="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
+                                        <div style={{ marginBottom: '12px', color: '#000000', fontWeight: 600, fontSize: '14px' }}>
+                                            Waiting:
+                                        </div>
                                         {queue.map(c => (
                                             <ClientCard key={c.id} client={c} onEditGroup={setEditingGroupClient} />
                                         ))}
-                                        {queue.length === 0 && <p className="text-gray-600 text-sm italic py-2">No direct requests</p>}
+
+                                        {queue.length === 0 && <p className="text-gray-600 text-sm italic py-4 text-center">No assignments</p>}
 
                                         {snoozed.length > 0 && (
-                                            <div className="mt-4 border-t border-white/10 pt-2">
-                                                <h4 className="text-yellow-500 mb-2 text-xs font-bold uppercase tracking-widest">SNOOZED / HOLDING</h4>
+                                            <div className="mt-6 border-t border-white/10 pt-4">
+                                                <h4 className="text-[#d4af37] mb-3 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                                    HOLDING
+                                                </h4>
                                                 {snoozed.map(c => (
-                                                    <div key={c.id} className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-2 mb-2">
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="font-bold text-sm text-gray-200">{c.name}</span>
-                                                            <button
-                                                                onClick={() => queueManager.reactivateClient(c.id)}
-                                                                className="bg-yellow-500 text-black border-none rounded px-2 py-1 text-xs font-bold cursor-pointer hover:bg-yellow-400"
-                                                            >
-                                                                REACTIVATE
-                                                            </button>
+                                                    <div key={c.id} className="bg-[#2a2d36] rounded-lg p-3 mb-2 flex justify-between items-center border-l-2 border-[#d4af37]">
+                                                        <div>
+                                                            <span className="font-bold text-sm text-gray-200 block">{c.name}</span>
+                                                            <span className="text-xs text-gray-500">Expires in ~{Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m</span>
                                                         </div>
-                                                        <div className="text-xs text-gray-500 mt-1">
-                                                            Auto-cancel in ~{Math.max(0, 5 - Math.floor((Date.now() - (c.snoozeStartTime || 0)) / 60000))}m
-                                                        </div>
+                                                        <button onClick={() => queueManager.reactivateClient(c.id)} className="text-[#d4af37] text-xs font-bold hover:underline">RE-ADD</button>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                </M3FilledCard>
+
                             );
                         })}
                     </div>
                 </>
             ) : activeTab === 'calendar' ? (
-                // Calendar Container - Dark Mode
+                // Calendar Container - M3 Surfaced
                 <div className="flex-1 bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 overflow-hidden">
                     <CalendarView onAddClient={handleCalendarAdd} />
                 </div>
             ) : (
-                <div className="flex-1 overflow-y-auto bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 p-8">
+                <div className="flex-1 overflow-y-auto bg-[#1a1d24] rounded-xl shadow-sm border border-white/5 p-8 custom-scrollbar">
                     <div className="max-w-2xl mx-auto">
                         <h2 className="text-2xl font-bold text-white border-b border-white/10 pb-4 mb-8">Shop Configuration</h2>
 
                         {/* Queue Management Settings */}
-                        <div className="mb-8">
-                            <h3 className="text-sm font-bold text-yellow-500 uppercase mb-4">Queue Management</h3>
+                        <div className="mb-10">
+                            <h3 className="text-sm font-bold text-[#d4af37] uppercase tracking-wider mb-6">Queue Management</h3>
 
-                            <div className="flex justify-between items-center mb-6 bg-black/20 p-4 rounded-xl border border-white/5">
+                            <div className="flex justify-between items-center mb-6 bg-black/20 p-5 rounded-xl border border-white/5">
                                 <div>
-                                    <label className="block font-bold text-white">Snooze / "Not Here" Feature</label>
-                                    <p className="text-sm text-gray-500 m-0">Allow barbers to snooze missing clients</p>
+                                    <label className="block font-bold text-white text-lg">Snooze Feature</label>
+                                    <p className="text-sm text-gray-500 m-0 mt-1">Allow barbers to snooze missing clients ("Not Here")</p>
                                 </div>
-                                <input
-                                    type="checkbox"
-                                    checked={settings?.snoozeEnabled ?? true}
-                                    onChange={(e) => queueManager.updateSettings({ snoozeEnabled: e.target.checked })}
-                                    className="w-5 h-5 accent-blue-600"
-                                />
+                                <div
+                                    onClick={() => queueManager.updateSettings({ snoozeEnabled: !settings?.snoozeEnabled })}
+                                    className={`w-14 h-8 rounded-full cursor-pointer relative transition-colors ${settings?.snoozeEnabled ? 'bg-[#d4af37]' : 'bg-gray-700'}`}
+                                >
+                                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${settings?.snoozeEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                                </div>
                             </div>
 
-                            <div className={`mb-6 transition-opacity ${settings?.snoozeEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                                <label className="block text-gray-400 mb-2 text-sm font-medium">Snooze Duration (Minutes)</label>
+                            <div className={`mb-6 p-5 rounded-xl border border-white/5 bg-black/20 transition-all ${settings?.snoozeEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                                <label className="block text-gray-400 text-sm font-medium mb-2">Snooze Duration (Minutes)</label>
                                 <input
                                     type="number"
-                                    value={settings?.snoozeDurationMinutes ?? 5}
-                                    onChange={(e) => queueManager.updateSettings({ snoozeDurationMinutes: parseInt(e.target.value) || 5 })}
-                                    className="w-full p-3 rounded-xl bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
+                                    className="w-full bg-[#0f1115] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                    value={settings?.snoozeDurationMinutes?.toString() ?? '5'}
+                                    onInput={(e: any) => queueManager.updateSettings({ snoozeDurationMinutes: parseInt(e.target.value) || 5 })}
                                 />
                                 <p className="text-xs text-gray-500 mt-2">Clients are auto-cancelled after this time.</p>
                             </div>
                         </div>
 
-                        <div className="mb-8">
-                            <h3 className="text-sm font-bold text-yellow-500 uppercase mb-4">Staff Management</h3>
-                            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                                <div className="flex gap-2 mb-4">
-                                    <input
-                                        type="text"
-                                        id="new-barber-name"
-                                        placeholder="New Barber Name"
-                                        className="flex-1 p-3 rounded-lg bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const input = e.currentTarget;
-                                                if (input.value.trim()) {
-                                                    queueManager.addBarber(input.value.trim());
-                                                    input.value = '';
+                        <div className="mb-10">
+                            <h3 className="text-sm font-bold text-[#d4af37] uppercase tracking-wider mb-6">Staff Management</h3>
+                            <div className="bg-black/20 p-6 rounded-xl border border-white/5">
+                                <div className="flex gap-4 mb-6 items-end">
+                                    <div className="flex-1">
+                                        <label className="block text-gray-400 text-sm font-medium mb-2">New Barber Name</label>
+                                        <input
+                                            id="new-barber-name"
+                                            placeholder="e.g. Mo"
+                                            className="w-full bg-[#0f1115] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                            onKeyDown={(e: any) => {
+                                                if (e.key === 'Enter') {
+                                                    const input = e.target as HTMLInputElement;
+                                                    if (input.value.trim()) {
+                                                        queueManager.addBarber(input.value.trim());
+                                                        input.value = '';
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                    />
+                                            }}
+                                        />
+                                    </div>
                                     <button
                                         onClick={() => {
                                             const input = document.getElementById('new-barber-name') as HTMLInputElement;
@@ -439,9 +474,9 @@ export function BarberDashboard() {
                                                 input.value = '';
                                             }
                                         }}
-                                        className="px-6 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                                        className="bg-[#d4af37] text-black px-6 py-3 rounded-lg font-bold hover:bg-[#b4941f]"
                                     >
-                                        Add
+                                        Add Barber
                                     </button>
                                 </div>
 
@@ -453,7 +488,7 @@ export function BarberDashboard() {
                                                     if (confirm(`Remove ${b.name}?`)) queueManager.removeBarber(b.id);
                                                 }} />
                                             ))}
-                                            {barbers.length === 0 && <p className="text-gray-500 italic text-sm">No barbers configured.</p>}
+                                            {barbers.length === 0 && <p className="text-gray-500 italic text-sm text-center py-4">No barbers configured.</p>}
                                         </div>
                                     </SortableContext>
                                 </DndContext>
@@ -462,57 +497,57 @@ export function BarberDashboard() {
 
                         {/* Calendar & Estimates Settings */}
                         <div className="mb-8">
-                            <h3 className="text-sm font-bold text-yellow-500 uppercase mb-4">Calendar & Estimates</h3>
-                            <div className="mb-6">
-                                <label className="block text-gray-400 mb-2 text-sm font-medium">Average Cut Time (Minutes)</label>
-                                <input
-                                    type="number"
-                                    value={settings?.averageCutTimeMinutes ?? 20}
-                                    onChange={(e) => queueManager.updateSettings({ averageCutTimeMinutes: parseInt(e.target.value) || 20 })}
-                                    className="w-full p-3 rounded-xl bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-2">Used for Calendar slots and Wait Time calculations.</p>
-                            </div>
-
-                            <div className="mb-6">
-                                <label className="block text-gray-400 mb-2 text-sm font-medium">Remote Booking Buffer (Minutes)</label>
-                                <input
-                                    type="number"
-                                    value={settings?.remoteBufferMinutes ?? 30}
-                                    onChange={(e) => queueManager.updateSettings({ remoteBufferMinutes: parseInt(e.target.value) || 30 })}
-                                    className="w-full p-3 rounded-xl bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-2">Safety margin added to "Earliest Available" slot.</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                            <h3 className="text-sm font-bold text-[#d4af37] uppercase tracking-wider mb-6">Calendar & Estimates</h3>
+                            <div className="grid grid-cols-1 gap-6 mb-6">
                                 <div>
-                                    <label className="block text-gray-400 mb-2 text-sm font-medium">First Cut (Hour 0-23)</label>
+                                    <label className="block text-gray-400 text-sm font-medium mb-2">Average Cut Time (Minutes)</label>
                                     <input
                                         type="number"
-                                        min="0"
-                                        max="23"
-                                        value={settings?.firstCutTime ?? 9}
-                                        onChange={(e) => queueManager.updateSettings({ firstCutTime: parseInt(e.target.value) || 9 })}
-                                        className="w-full p-3 rounded-xl bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
+                                        className="w-full bg-[#0f1115] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                        value={settings?.averageCutTimeMinutes?.toString() ?? '20'}
+                                        onInput={(e: any) => queueManager.updateSettings({ averageCutTimeMinutes: parseInt(e.target.value) || 20 })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-gray-400 mb-2 text-sm font-medium">Last Cut (Hour 0-23)</label>
+                                    <label className="block text-gray-400 text-sm font-medium mb-2">Remote Booking Buffer (Minutes)</label>
+                                    <input
+                                        type="number"
+                                        className="w-full bg-[#0f1115] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                        value={settings?.remoteBufferMinutes?.toString() ?? '30'}
+                                        onInput={(e: any) => queueManager.updateSettings({ remoteBufferMinutes: parseInt(e.target.value) || 30 })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-gray-400 text-sm font-medium mb-2">First Cut (Hour 0-23)</label>
                                     <input
                                         type="number"
                                         min="0"
                                         max="23"
-                                        value={settings?.lastCutTime ?? 18}
-                                        onChange={(e) => queueManager.updateSettings({ lastCutTime: parseInt(e.target.value) || 18 })}
-                                        className="w-full p-3 rounded-xl bg-[#0f1115] border border-white/10 text-white outline-none focus:border-blue-500"
+                                        className="w-full bg-[#0f1115] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                        value={settings?.firstCutTime?.toString() ?? '9'}
+                                        onInput={(e: any) => queueManager.updateSettings({ firstCutTime: parseInt(e.target.value) || 9 })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-400 text-sm font-medium mb-2">Last Cut (Hour 0-23)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="23"
+                                        className="w-full bg-[#0f1115] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-[#d4af37]"
+                                        value={settings?.lastCutTime?.toString() ?? '18'}
+                                        onInput={(e: any) => queueManager.updateSettings({ lastCutTime: parseInt(e.target.value) || 18 })}
                                     />
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* Persistent Margin for Debug Footer */}
             <div className="h-16 flex-shrink-0"></div>
@@ -521,28 +556,30 @@ export function BarberDashboard() {
             <div className="fixed bottom-0 left-0 right-0 bg-[#1a1d24] border-t border-white/10 p-3 z-40 flex justify-between items-center px-6 shadow-2xl">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-red-500 uppercase tracking-widest bg-red-500/10 px-2 py-1 rounded">Debug Mode</span>
-                    <span className="text-xs text-gray-500">v0.8_080226</span>
+                    <span className="text-xs text-gray-500">v0.8.1_100226</span>
                 </div>
                 <div className="flex gap-4">
                     <button
-                        className="px-4 py-2 bg-[#0f1115] rounded text-white text-xs font-bold border border-white/10 hover:bg-white/10 cursor-pointer transition-colors"
                         onClick={() => {
                             const names = ['Alice', 'Bob', 'Charlie', 'Dave', 'Eve', 'Frank', 'George', 'Harry'];
-                            const barberIds = [...barbers.map(b => b.id), 'next_available'];
+                            // Only pick available barbers or next_available
+                            const availableBarbers = barbers.filter(b => b.isAvailable).map(b => b.id);
+                            const barberIds = [...availableBarbers, 'next_available'];
                             queueManager.addClient(names[Math.floor(Math.random() * names.length)], barberIds[Math.floor(Math.random() * barberIds.length)]);
                         }}
+                        className="border border-white/20 text-gray-300 px-4 py-2 rounded-lg font-bold hover:bg-white/5 hover:text-white transition-colors text-sm"
                     >
                         + Random Client
                     </button>
                     <button
-                        className="px-4 py-2 bg-red-500/10 text-red-500 rounded text-xs font-bold border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors"
                         onClick={() => { if (confirm('Reset all data?')) { queueManager.reset(); window.location.reload(); } }}
+                        className="text-red-500 font-bold hover:bg-red-500/10 px-4 py-2 rounded-lg transition-colors text-sm"
                     >
                         Reset System
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 
@@ -564,7 +601,8 @@ function SortableBarberItem({ id, name, onDelete }: { id: string, name: string, 
 function ClientCard({ client, onEditGroup }: { client: Client, onEditGroup: (client: Client) => void }) {
     const waitTime = Math.floor((Date.now() - client.checkInTime) / 60000);
     return (
-        <div className="bg-[#2a2d36] p-4 rounded-xl shadow-sm border border-white/5 hover:border-white/20 transition-colors group">
+        <M3ElevatedCard style={{ padding: '16px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
+            {/* Removed local hover/bg styles as M3ElevatedCard handles container. Keeping internal layout. */}
             <div className="flex justify-between items-center mb-1">
                 <div className="font-bold text-white text-base truncate flex items-center gap-2">
                     {client.name}
@@ -578,14 +616,14 @@ function ClientCard({ client, onEditGroup }: { client: Client, onEditGroup: (cli
                     #{client.id.slice(-3)}
                 </div>
             </div>
-            <div className="text-xs text-gray-500 font-medium flex justify-between">
+            <div className="text-xs text-gray-400 font-medium flex justify-between">
                 <span>Waiting {waitTime}m</span>
                 {client.remainingSize && client.remainingSize > 1 && (
-                    <button onClick={() => onEditGroup(client)} className="text-gray-500 hover:text-blue-400 underline decoration-dotted bg-transparent border-none cursor-pointer p-0">
+                    <button onClick={() => onEditGroup(client)} className="text-gray-400 hover:text-blue-400 underline decoration-dotted bg-transparent border-none cursor-pointer p-0">
                         Edit
                     </button>
                 )}
             </div>
-        </div>
+        </M3ElevatedCard>
     );
 }

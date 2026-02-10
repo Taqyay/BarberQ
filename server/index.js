@@ -37,17 +37,27 @@ let state = {
 };
 
 const handleCallNext = (barberId) => {
-  // 1. Finish currently assigned client (if in chair)
-  // 1. Finish currently assigned client (if in chair)
+  // 0. Check Barber Availability
+  const barber = state.barbers.find(b => b.id === barberId);
+  const isAway = barber ? !barber.isAvailable : false;
+
   // 1. Finish currently assigned client (if in chair)
   // BUG FIX: Ensure we timestamp when they finished for history tracking
   const now = Date.now();
+  let clientFinished = false;
   state.clients = state.clients.map(c => {
     if (c.status === 'in_chair' && (c.assignedBarber === barberId || (c.barberPreference === barberId && !c.assignedBarber))) {
+      clientFinished = true;
       return { ...c, status: 'finished', serviceEndTime: now };
     }
     return c;
   });
+
+  // If barber is AWAY, stop here. Do not assign next.
+  if (isAway) {
+    if (clientFinished) io.emit('SYNC_STATE', state);
+    return;
+  }
 
   // 2. Find next best candidate
   const candidates = state.clients.filter(c =>
@@ -255,6 +265,14 @@ io.on('connection', (socket) => {
     handleCallNext(barberId);
   });
 
+  socket.on('FINISH_CLIENT', (clientId) => {
+    console.log('RECEIVED FINISH_CLIENT', clientId);
+    state.clients = state.clients.map(c =>
+      c.id === clientId ? { ...c, status: 'finished', serviceEndTime: Date.now() } : c
+    );
+    io.emit('SYNC_STATE', state);
+  });
+
   socket.on('SNOOZE_CLIENT', (clientId) => {
     if (!state.settings.snoozeEnabled) return;
     let barberToUpdate = null;
@@ -359,6 +377,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = 3001;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });

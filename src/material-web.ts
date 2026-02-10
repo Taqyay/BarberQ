@@ -40,34 +40,6 @@ if (typeof document !== 'undefined' && typescaleStyles.styleSheet) {
 }
 
 // Declare global types for TypeScript/JSX support
-declare global {
-    namespace JSX {
-        interface IntrinsicElements {
-            'md-filled-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { disabled?: boolean }, HTMLElement>;
-            'md-outlined-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { disabled?: boolean }, HTMLElement>;
-            'md-text-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { disabled?: boolean }, HTMLElement>;
-            'md-checkbox': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { checked?: boolean; disabled?: boolean }, HTMLElement>;
-            'md-circular-progress': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { value?: number; indeterminate?: boolean }, HTMLElement>;
-            'md-linear-progress': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { value?: number; indeterminate?: boolean }, HTMLElement>;
-            'md-elevation': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-divider': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-icon': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-icon-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { disabled?: boolean }, HTMLElement>;
-            'md-fab': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { label?: string; variant?: string }, HTMLElement>;
-            'md-list': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-list-item': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { headline?: string; supportingText?: string }, HTMLElement>;
-            'md-ripple': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-switch': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { selected?: boolean; disabled?: boolean }, HTMLElement>;
-            'md-tabs': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-primary-tab': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { active?: boolean }, HTMLElement>;
-            'md-secondary-tab': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { active?: boolean }, HTMLElement>;
-            'md-outlined-text-field': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { label?: string; value?: string }, HTMLElement>;
-            'md-filled-text-field': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { label?: string; value?: string }, HTMLElement>;
-            'md-chip-set': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
-            'md-assist-chip': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { label?: string }, HTMLElement>;
-            'md-filter-chip': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { label?: string; selected?: boolean }, HTMLElement>;
-        }
-    }
-}
+// Global types moved to src/types/material-web.d.ts
 
 export { };

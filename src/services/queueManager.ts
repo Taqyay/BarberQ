@@ -113,6 +113,10 @@ export class QueueManager {
     this.socket.emit('CALL_NEXT', barberId);
   }
 
+  finishClient(clientId: string) {
+    this.socket.emit('FINISH_CLIENT', clientId);
+  }
+
   snoozeClient(clientId: string) {
     this.socket.emit('SNOOZE_CLIENT', clientId);
   }

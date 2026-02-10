@@ -1,7 +1,7 @@
 {
   "name": "barberq",
   "private": true,
-  "version": "0.8.0-080226",
+  "version": "0.8.1-100226",
   "type": "module",
   "scripts": {
     "dev": "vite",

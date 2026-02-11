@@ -5,11 +5,12 @@ import type { BarberId, Client, BarberState, Settings } from '../types';
 import { CalendarView } from '../components/CalendarView';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { ProgressRing } from '../components/ProgressRing';
+import { useTheme, THEMES, type ThemeId } from '../contexts/ThemeContext';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
+import * as RadioGroup from '@radix-ui/react-radio-group';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Avatar } from '../components/Avatar';
 
 // --- Headless UI Components (Tailwind) ---
 
@@ -234,7 +235,7 @@ export function BarberDashboard() {
                 {/* Footer / Debug Bar */}
                 <footer className="h-10 px-4 bg-background border-t border-border flex items-center justify-between text-[10px] text-text-secondary font-medium shrink-0">
                     <div className="flex items-center gap-6">
-                        <span>Ver 0.8.5.2-110226-2</span>
+                        <span>Ver 0.8.5_110226_1</span>
                         <span className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${true ? 'bg-primary' : 'bg-red-500'}`}></div>
                             HEADLESS UI
@@ -438,15 +439,17 @@ function BarberColumn({ barber, queue, inChair, onCallNext, onFinish, onSnooze, 
     return (
         <div className="flex-1 min-w-[320px] max-w-[380px] flex flex-col gap-4 h-full">
             {/* Barber Header Card */}
-            <Card className={`p-4 flex items-center justify-between transition-all duration-200 shadow-m ${barber.isAvailable ? 'opacity-100' : 'opacity-60'}`}>
-                <div className="flex items-center gap-3">
+            <Card className={`p-4 flex items-center justify-between transition-all duration-300 ${barber.isAvailable ? 'opacity-100 border-primary/20 bg-surfaceHighlight/30' : 'opacity-60 grayscale'}`}>
+                <div className="flex items-center gap-4">
                     <div className="relative">
-                        <Avatar name={barber.name} size="lg" />
-                        {barber.isAvailable && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full border-2 border-surface shadow-sm"></div>}
+                        <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-primary font-bold text-lg shadow-sm">
+                            {barber.name.charAt(0)}
+                        </div>
+                        {barber.isAvailable && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full border-2 border-surface"></div>}
                     </div>
                     <div>
-                        <span className="font-semibold text-base text-text-main block leading-tight">{barber.name}</span>
-                        <span className="text-xs text-text-secondary">{barber.isAvailable ? 'Active' : 'Offline'}</span>
+                        <span className="font-bold text-lg text-text-main block leading-tight">{barber.name}</span>
+                        <span className="text-[10px] uppercase tracking-widest text-text-secondary font-bold">{barber.isAvailable ? 'Active Station' : 'Offline'}</span>
                     </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -468,12 +471,14 @@ function BarberColumn({ barber, queue, inChair, onCallNext, onFinish, onSnooze, 
             </div>
 
             {/* In-Chair Card - 160px Fixed Height */}
-            <div className={`rounded-2xl border border-dashed border-border p-1 h-[160px] flex flex-col ${inChair ? 'bg-surfaceHighlight' : 'bg-transparent'}`}>
+            <div className={`rounded-2xl border border-dashed border-border/50 p-1 h-[160px] flex flex-col ${inChair ? 'bg-surfaceHighlight/20' : 'bg-transparent'}`}>
                 {inChair ? (
-                    <div className="bg-surface rounded-xl p-4 shadow-m border-l-4 border-primary h-full flex items-center gap-4 relative overflow-hidden">
-                        {/* Avatar */}
+                    <div className="bg-surface rounded-xl p-4 shadow-lg border-l-4 border-primary h-full flex items-center gap-4 relative overflow-hidden">
+                        {/* Gold Chair Icon */}
                         <div className="flex-shrink-0">
-                            <Avatar name={inChair.name} size="lg" />
+                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="material-icons text-primary text-4xl">airline_seat_recline_extra</span>
+                            </div>
                         </div>
 
                         {/* Client Info */}
@@ -524,26 +529,23 @@ function BarberColumn({ barber, queue, inChair, onCallNext, onFinish, onSnooze, 
                                         <div className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-primary' : 'bg-transparent'}`}></div>
                                     </div>
 
-                                    <div className="bg-surface border border-border rounded-2xl p-4 hover:border-primary/30 hover:shadow-m transition-all flex items-center gap-3">
-                                        <Avatar name={client.name} size="md" />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <p className="text-sm font-semibold text-text-main flex items-center gap-2">
-                                                    {client.name}
-                                                    {(client.remainingSize || 0) > 1 && (
-                                                        <button onClick={() => onEditGroup(client)} className="text-[9px] bg-primary/15 text-primary px-1.5 py-0.5 rounded-md hover:bg-primary/25 font-medium">
-                                                            +{client.remainingSize! - 1}
-                                                        </button>
-                                                    )}
-                                                </p>
-                                                <span className="text-xs text-text-secondary">
-                                                    {new Date(client.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-text-secondary">
-                                                Wait: <span className="text-text-main font-medium">{Math.floor((Date.now() - client.checkInTime) / 60000)}m</span>
+                                    <div className="bg-surface border border-border rounded-xl p-3 hover:border-text-secondary/30 transition-all">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <p className="text-sm font-bold text-text-main flex items-center gap-2">
+                                                {client.name}
+                                                {(client.remainingSize || 0) > 1 && (
+                                                    <button onClick={() => onEditGroup(client)} className="text-[9px] bg-primary/20 text-primary px-1.5 rounded hover:bg-primary/30">
+                                                        +{client.remainingSize! - 1}
+                                                    </button>
+                                                )}
                                             </p>
+                                            <span className="text-[10px] font-bold text-text-secondary font-mono">
+                                                {new Date(client.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </div>
+                                        <p className="text-[10px] text-text-secondary font-medium uppercase tracking-wider">
+                                            Est. Wait: <span className="text-text-main">{Math.floor((Date.now() - client.checkInTime) / 60000)}m</span>
+                                        </p>
                                     </div>
                                 </div>
                             ))}
@@ -568,16 +570,18 @@ function SidebarClientCard({ client, index }: { client: Client, index: number })
     const isNext = index === 0;
 
     return (
-        <div className={`p-4 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer group shadow-s hover:shadow-m ${isNext ? 'bg-surface border-primary shadow-m' : 'bg-surface border-border'}`}>
-            <Avatar name={client.name} size="md" />
+        <div className={`p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer group ${isNext ? 'bg-surface border-primary/50 shadow-md' : 'bg-surface/40 border-border hover:bg-surface hover:border-text-secondary/30'}`}>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg ${isNext ? 'bg-primary text-background' : 'bg-background text-text-secondary'}`}>
+                {client.name.charAt(0)}
+            </div>
             <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-baseline">
-                    <p className="text-sm font-semibold truncate text-text-main">{client.name}</p>
-                    <span className="text-xs text-text-secondary">{new Date(client.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <p className="text-sm font-bold truncate text-text-main group-hover:text-primary transition-colors">{client.name}</p>
+                    <span className="text-[10px] font-bold text-text-secondary/60 font-mono">{new Date(client.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div className="flex justify-between items-center mt-0.5">
-                    <span className="text-xs text-text-secondary">Wait: {waitTime}m</span>
-                    {isNext && <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Next</span>}
+                    <span className="text-[9px] text-text-secondary uppercase tracking-wider font-bold">Walk-in</span>
+                    <span className="text-[10px] font-bold text-text-main bg-background px-1.5 rounded">{waitTime}m</span>
                 </div>
             </div>
         </div>
@@ -676,15 +680,56 @@ function SettingsView({ barbers, settings, onAddBarber, onRemoveBarber, sensors,
                 </Card>
             </section>
 
-            {/* Theme Selector - Temporarily Disabled (Tailwind v4 Config Issue)
             <section>
                 <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">Theme</h3>
                 <Card className="p-6 bg-surface/50">
                     <ThemeSelector />
                 </Card>
             </section>
-            */}
         </div>
+    );
+}
+
+function ThemeSelector() {
+    const { theme, setTheme } = useTheme();
+
+    return (
+        <RadioGroup.Root value={theme} onValueChange={(value) => setTheme(value as ThemeId)}>
+            <div className="grid grid-cols-3 gap-4">
+                {Object.entries(THEMES).map(([id, themeData]) => (
+                    <RadioGroup.Item
+                        key={id}
+                        value={id}
+                        className="group relative"
+                    >
+                        <div className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${theme === id
+                                ? 'border-primary bg-primary/10 shadow-lg'
+                                : 'border-border bg-surface hover:border-text-secondary/50'
+                            }`}>
+                            {/* Color Swatch */}
+                            <div
+                                className="w-full h-20 rounded-lg mb-3 shadow-inner"
+                                style={{ backgroundColor: themeData.primary }}
+                            />
+
+                            {/* Theme Name */}
+                            <h4 className="text-sm font-bold text-text-main mb-1">{themeData.name}</h4>
+                            <p className="text-[10px] text-text-secondary font-mono">{themeData.font}</p>
+
+                            {/* Radio Indicator */}
+                            <div className={`absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${theme === id
+                                    ? 'border-primary bg-primary'
+                                    : 'border-border bg-transparent'
+                                }`}>
+                                {theme === id && (
+                                    <div className="w-2 h-2 rounded-full bg-background" />
+                                )}
+                            </div>
+                        </div>
+                    </RadioGroup.Item>
+                ))}
+            </div>
+        </RadioGroup.Root>
     );
 }
 

@@ -1,43 +1,34 @@
-/** @type {import('tailwindcss').Config} */
+import type { Config } from "tailwindcss";
+
 export default {
-    content: [
-        "./index.html",
-        "./src/**/*.{js,ts,jsx,tsx}",
-    ],
+    darkMode: ["class"],
+    content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
     theme: {
         extend: {
-            fontFamily: {
-                sans: ['Inter', 'sans-serif'],
-                mono: ['JetBrains Mono', 'monospace'],
-            },
             colors: {
-                google: {
-                    blue: '#4285F4',
-                    red: '#EA4335',
-                    yellow: '#FBBC05',
-                    green: '#34A853',
-                    gray: {
-                        50: '#F8F9FA',
-                        100: '#F1F3F4',
-                        200: '#E8EAED',
-                        300: '#DADCE0',
-                        400: '#BDC1C6',
-                        500: '#9AA0A6',
-                        600: '#80868B',
-                        700: '#5F6368',
-                        800: '#3C4043',
-                        900: '#202124',
-                    }
-                }
+                primary: 'var(--color-primary)',
+                surface: 'var(--color-surface)',
+                surfaceHighlight: 'var(--color-surfaceHighlight)',
+                background: 'var(--color-background)',
+                border: 'var(--color-border)',
+                'text-main': 'var(--color-text-main)',
+                'text-secondary': 'var(--color-text-secondary)',
+            },
+            fontFamily: {
+                heading: 'var(--font-heading)',
+                body: 'var(--font-body)',
+                sans: 'var(--font-body)',
             },
             boxShadow: {
-                'google': '0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15)',
-                'google-hover': '0 1px 3px 0 rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15)',
+                's': 'var(--shadow-s)',
+                'm': 'var(--shadow-m)',
+                'l': 'var(--shadow-l)',
             },
             borderRadius: {
-                'google': '8px',
+                'xl': '20px',
+                '2xl': '24px',
             }
-        },
+        }
     },
-    plugins: [],
-}
+    plugins: [require("tailwindcss-animate")],
+} satisfies Config;

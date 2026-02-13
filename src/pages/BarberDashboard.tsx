@@ -1,10 +1,10 @@
-import { useState, type FC, type ReactNode, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useState, useEffect, type FC, type ReactNode, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useQueue } from '../hooks/useQueue';
 import { queueManager } from '../services/queueManager';
 import type { BarberId, Client, BarberState, Settings } from '../types';
 import { CalendarView } from '../components/CalendarView';
 import { ConnectionStatus } from '../components/ConnectionStatus';
-import { ProgressRing } from '../components/ProgressRing';
+import { ProgressBar } from '../components/ProgressBar';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -43,10 +43,10 @@ interface BarberColumnProps {
     queue: Client[];
     inChair: Client | undefined;
     onCallNext: () => void;
-    onFinish: (id: string) => void;
     onSnooze: (id: string) => void;
     onToggleAvailability: () => void;
     onEditGroup: (client: Client) => void;
+    progress: number;
 }
 
 interface SettingsViewProps {
@@ -126,9 +126,34 @@ export function BarberDashboard() {
     const globalPool = clients.filter(c => c.status === 'waiting' && c.barberPreference === 'next_available');
 
     // Derived Metrics
-    const totalWaitTime = globalPool.reduce((acc, c) => acc + (Math.floor((Date.now() - c.checkInTime) / 60000)), 0);
-    const avgWait = globalPool.length > 0 ? Math.round(totalWaitTime / globalPool.length) : 0;
     const activeBarbersCount = barbers.filter(b => b.isAvailable).length;
+    const avgWeightPerBarber = activeBarbersCount > 0 ? (globalPool.length * (settings.averageCutTimeMinutes || 20)) / activeBarbersCount : 0;
+    const avgWait = Math.round(avgWeightPerBarber);
+
+    // Progress Calculation Logic
+    const useServiceProgress = (client: Client | undefined) => {
+        const [progress, setProgress] = useState(0);
+
+        useEffect(() => {
+            if (!client || !client.serviceStartTime) {
+                setProgress(0);
+                return;
+            }
+
+            const interval = setInterval(() => {
+                const elapsedMs = Date.now() - client.serviceStartTime!;
+                const totalMs = (settings.averageCutTimeMinutes || 20) * 60 * 1000;
+
+                // Linear progress from 0 to 95%
+                const rawProgress = (elapsedMs / totalMs) * 95;
+                setProgress(Math.min(rawProgress, 95));
+            }, 1000);
+
+            return () => clearInterval(interval);
+        }, [client, settings.averageCutTimeMinutes]);
+
+        return progress;
+    };
 
     return (
         <div className="h-screen flex overflow-hidden bg-background font-sans text-text-main selection:bg-primary/30">
@@ -192,16 +217,16 @@ export function BarberDashboard() {
                             <div className="flex gap-4 h-full min-w-max">
                                 {/* Barber Columns */}
                                 {barbers.map(barber => (
-                                    <BarberColumn
+                                    <BarberColumnWrapper
                                         key={barber.id}
                                         barber={barber}
                                         queue={getQueueFor(barber.id)}
                                         inChair={getInChair(barber.id)}
                                         onCallNext={() => queueManager.callNext(barber.id)}
-                                        onFinish={(id) => queueManager.finishClient(id)}
-                                        onSnooze={(id) => queueManager.snoozeClient(id)}
+                                        onSnooze={(clientId: string) => queueManager.snoozeClient(clientId)}
                                         onToggleAvailability={() => queueManager.toggleBarberAvailability(barber.id, !barber.isAvailable)}
                                         onEditGroup={setEditingGroupClient}
+                                        useServiceProgress={useServiceProgress}
                                     />
                                 ))}
                             </div>
@@ -234,7 +259,7 @@ export function BarberDashboard() {
                 {/* Footer / Debug Bar */}
                 <footer className="h-10 px-4 bg-background border-t border-border flex items-center justify-between text-[10px] text-text-secondary font-medium shrink-0">
                     <div className="flex items-center gap-6">
-                        <span>Ver 0.8.5.2-110226-2</span>
+                        <span>Ver 0.8.5.3_120226</span>
                         <span className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${true ? 'bg-primary' : 'bg-red-500'}`}></div>
                             HEADLESS UI
@@ -277,27 +302,31 @@ export function BarberDashboard() {
                             <div className="flex flex-col gap-2">
                                 {clients.filter(c => c.status === 'snoozed').map(c => (
                                     <div key={c.id} className="p-3 rounded-lg border border-primary/30 bg-primary/5 flex items-center gap-3 cursor-pointer hover:bg-primary/10 transition-all group">
+                                        <Avatar name={c.name} size="sm" />
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-baseline">
-                                                <p className="text-xs font-bold truncate text-text-main">{c.name}</p>
-                                                <button onClick={() => queueManager.reactivateClient(c.id)} className="text-[9px] font-bold text-primary hover:underline">RE-ADD</button>
-                                            </div>
+                                            <p className="text-xs font-bold text-text-main truncate">{c.name}</p>
                                         </div>
+                                        <button onClick={() => queueManager.reactivateClient(c.id)} className="material-icons text-lg text-primary hover:scale-110 transition-transform">restore</button>
+                                        <button onClick={() => queueManager.cancelClient(c.id)} className="material-icons text-lg text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">close</button>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* General Pool */}
                     <div>
-                        <div className="flex flex-col gap-3">
-                            {globalPool.map((client, i) => (
-                                <SidebarClientCard key={client.id} client={client} index={i} />
+                        <h3 className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2">
+                            Upcoming
+                            <div className="flex-1 h-[1px] bg-border"></div>
+                        </h3>
+                        <div className="space-y-3">
+                            {globalPool.map((client: Client, idx: number) => (
+                                <SidebarClientCard key={client.id} client={client} index={idx} />
                             ))}
                             {globalPool.length === 0 && (
-                                <div className="p-8 text-center border border-dashed border-border rounded-xl">
-                                    <span className="text-xs text-text-secondary/50 italic">Pool is empty</span>
+                                <div className="p-8 text-center border-2 border-dashed border-border rounded-3xl opacity-20">
+                                    <span className="material-icons text-4xl block mb-2">person_add_disabled</span>
+                                    <p className="text-[10px] font-bold uppercase tracking-tighter">Pool is empty</p>
                                 </div>
                             )}
                         </div>
@@ -434,7 +463,27 @@ function StatPill({ label, value, highlight }: { label: string, value: string, h
     );
 }
 
-function BarberColumn({ barber, queue, inChair, onCallNext, onFinish, onSnooze, onToggleAvailability, onEditGroup }: BarberColumnProps) {
+function BarberColumnWrapper({ barber, onCallNext, useServiceProgress, ...props }: any) {
+    const [isCompleting, setIsCompleting] = useState(false);
+    const progress = useServiceProgress(props.inChair);
+
+    const handleCallNext = () => {
+        if (props.inChair) {
+            setIsCompleting(true);
+            // Brief delay to show 100% before actually calling next
+            setTimeout(() => {
+                onCallNext();
+                setIsCompleting(false);
+            }, 600);
+        } else {
+            onCallNext();
+        }
+    };
+
+    return <BarberColumn {...props} barber={barber} onCallNext={handleCallNext} progress={isCompleting ? 100 : progress} />;
+}
+
+function BarberColumn({ barber, queue, inChair, onCallNext, onSnooze, onToggleAvailability, onEditGroup, progress }: BarberColumnProps) {
     return (
         <div className="flex-1 min-w-[320px] max-w-[380px] flex flex-col gap-4 h-full">
             {/* Barber Header Card */}
@@ -461,9 +510,9 @@ function BarberColumn({ barber, queue, inChair, onCallNext, onFinish, onSnooze, 
                     <span className="material-icons text-xl">play_circle</span>
                     CALL NEXT
                 </Button>
-                <Button variant="secondary" onClick={() => inChair && onFinish(inChair.id)} disabled={!inChair} className="h-12 text-sm border border-border/50">
-                    <span className="material-icons text-xl">check_circle</span>
-                    DONE
+                <Button variant="secondary" onClick={() => inChair && onSnooze(inChair.id)} disabled={!inChair} className="h-12 text-sm border border-border/50">
+                    <span className="material-icons text-xl">snooze</span>
+                    NOT HERE
                 </Button>
             </div>
 
@@ -485,14 +534,15 @@ function BarberColumn({ barber, queue, inChair, onCallNext, onFinish, onSnooze, 
                             <p className="text-[10px] text-text-secondary font-mono">
                                 Started: {new Date(inChair.serviceStartTime!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
-                            <button onClick={() => onSnooze(inChair.id)} className="text-[9px] text-text-secondary hover:text-primary font-bold underline decoration-dotted mt-1">
-                                Not Here?
-                            </button>
                         </div>
 
-                        {/* SVG Progress Ring */}
-                        <div className="flex-shrink-0">
-                            <ProgressRing progress={65} size={64} strokeWidth={5} />
+                        {/* Progress Bar Container */}
+                        <div className="flex-1 px-2 flex flex-col justify-center gap-2">
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Service Progress</span>
+                                <span className="text-[9px] font-bold text-primary">{Math.round(progress)}%</span>
+                            </div>
+                            <ProgressBar progress={progress} />
                         </div>
                     </div>
                 ) : (
@@ -585,94 +635,99 @@ function SidebarClientCard({ client, index }: { client: Client, index: number })
 }
 
 function SettingsView({ barbers, settings, onAddBarber, onRemoveBarber, sensors, handleDragEnd, onUpdateSettings }: SettingsViewProps) {
+    const [localSettings, setLocalSettings] = useState(settings);
+
+    // Sync local settings when external settings prop changes
+    useEffect(() => {
+        setLocalSettings(settings);
+    }, [settings]);
+
+    const updateLocalSetting = (update: Partial<Settings>) => {
+        setLocalSettings(prev => ({ ...prev, ...update }));
+    };
+
+    const hasChanges = JSON.stringify(localSettings) !== JSON.stringify(settings);
+
     return (
         <div className="max-w-2xl mx-auto space-y-8">
             <h2 className="text-2xl font-bold text-text-main border-b border-border pb-4">Configuration</h2>
 
             <section>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Staff Management</h3>
-                    <span className="text-[10px] text-text-secondary bg-surface px-2 py-1 rounded border border-border">Drag to Reorder</span>
+                <div className="flex justify-between items-end mb-6">
+                    <div>
+                        <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-1">Shop Parameters</h3>
+                        <p className="text-xs text-text-secondary">Core business logic & timing</p>
+                    </div>
+                    {hasChanges && (
+                        <Button onClick={() => onUpdateSettings(localSettings)} className="animate-in fade-in slide-in-from-right-4">
+                            SAVE CHANGES
+                        </Button>
+                    )}
                 </div>
 
-                <Card className="p-6 bg-surface/50">
+                <div className="grid grid-cols-2 gap-6 bg-surface p-6 rounded-2xl border border-border shadow-s">
+                    <ConfigInput
+                        label="Avg Cut Time (min)"
+                        value={localSettings.averageCutTimeMinutes || 20}
+                        onChange={(val) => updateLocalSetting({ averageCutTimeMinutes: Number(val) })}
+                    />
+                    <ConfigInput
+                        label="Remote Buffer (min)"
+                        value={localSettings.remoteBufferMinutes || 0}
+                        onChange={(val) => updateLocalSetting({ remoteBufferMinutes: Number(val) })}
+                    />
+                    <ConfigInput
+                        label="Shop Opening"
+                        type="time"
+                        value={localSettings.firstCutTime || "09:00"}
+                        onChange={(val) => updateLocalSetting({ firstCutTime: String(val) })}
+                    />
+                    <ConfigInput
+                        label="Shop Closing"
+                        type="time"
+                        value={localSettings.lastCutTime || "18:00"}
+                        onChange={(val) => updateLocalSetting({ lastCutTime: String(val) })}
+                    />
+                </div>
+            </section>
+
+            <section>
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">Staff Directory</h3>
+                <Card className="p-6 bg-surface/50 border-dashed">
+                    <div className="flex gap-2 mb-6">
+                        <input
+                            type="text"
+                            id="new-barber-name"
+                            className="flex-1 bg-background border border-border rounded-lg px-4 text-sm focus:outline-none focus:border-primary transition-colors"
+                            placeholder="Add new barber..."
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const input = e.currentTarget;
+                                    if (input.value.trim()) {
+                                        onAddBarber(input.value.trim());
+                                        input.value = '';
+                                    }
+                                }
+                            }}
+                        />
+                        <Button onClick={() => {
+                            const input = document.getElementById('new-barber-name') as HTMLInputElement;
+                            if (input.value.trim()) {
+                                onAddBarber(input.value.trim());
+                                input.value = '';
+                            }
+                        }}>ADD</Button>
+                    </div>
+
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={barbers.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
-                            <div className="flex flex-col gap-2 mb-4">
-                                {barbers.map((b: any) => (
-                                    <SortableBarberItem key={b.id} id={b.id} name={b.name} onDelete={() => onRemoveBarber(b.id)} />
+                        <SortableContext items={barbers.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-2">
+                                {barbers.map((barber) => (
+                                    <SortableBarberItem key={barber.id} id={barber.id} name={barber.name} onDelete={() => onRemoveBarber(barber.id)} />
                                 ))}
                             </div>
                         </SortableContext>
                     </DndContext>
-                    <div className="flex gap-3 pt-4 border-t border-border">
-                        <input id="new-barber" placeholder="New Barber Name" className="flex-1 bg-background border border-border rounded-lg p-2 text-text-main text-sm focus:outline-none focus:border-primary" />
-                        <Button onClick={() => {
-                            const input = document.getElementById('new-barber') as HTMLInputElement;
-                            if (input.value) { onAddBarber(input.value); input.value = ''; }
-                        }}>ADD BARBER</Button>
-                    </div>
-                </Card>
-            </section>
-
-            <section>
-                <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">Shop Configuration</h3>
-                <Card className="p-6 bg-surface/50 space-y-6">
-                    {/* Snooze Settings */}
-                    <div className="flex justify-between items-center pb-4 border-b border-border">
-                        <div>
-                            <label className="block text-text-main text-sm font-bold">Snooze Feature</label>
-                            <p className="text-xs text-text-secondary mt-0.5">Allow marking clients as "Not Here"</p>
-                        </div>
-                        <div onClick={() => onUpdateSettings({ snoozeEnabled: !settings?.snoozeEnabled })} className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${settings?.snoozeEnabled ? 'bg-primary' : 'bg-surface border border-border'}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${settings?.snoozeEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                        </div>
-                    </div>
-
-                    <div className={`grid grid-cols-2 gap-4 transition-opacity ${settings?.snoozeEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                        <div>
-                            <label className="block text-text-secondary text-xs font-bold uppercase tracking-wider mb-2">Snooze Duration (mins)</label>
-                            <input type="number" className="bg-background border border-border rounded-lg p-2 text-text-main w-full"
-                                value={settings?.snoozeDurationMinutes || 5}
-                                onChange={(e) => onUpdateSettings({ snoozeDurationMinutes: parseInt(e.target.value) })}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Operational Settings */}
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                        <div>
-                            <label className="block text-text-secondary text-xs font-bold uppercase tracking-wider mb-2">Avg Cut Time (mins)</label>
-                            <input type="number" className="bg-background border border-border rounded-lg p-2 text-text-main w-full"
-                                value={settings?.averageCutTimeMinutes || 20}
-                                onChange={(e) => onUpdateSettings({ averageCutTimeMinutes: parseInt(e.target.value) })}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-text-secondary text-xs font-bold uppercase tracking-wider mb-2">Remote Buffer (mins)</label>
-                            <input type="number" className="bg-background border border-border rounded-lg p-2 text-text-main w-full"
-                                value={settings?.remoteBufferMinutes || 30}
-                                onChange={(e) => onUpdateSettings({ remoteBufferMinutes: parseInt(e.target.value) })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-text-secondary text-xs font-bold uppercase tracking-wider mb-2">Open Hour (0-23)</label>
-                            <input type="number" className="bg-background border border-border rounded-lg p-2 text-text-main w-full"
-                                value={settings?.firstCutTime || 9}
-                                onChange={(e) => onUpdateSettings({ firstCutTime: parseInt(e.target.value) })}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-text-secondary text-xs font-bold uppercase tracking-wider mb-2">Close Hour (0-23)</label>
-                            <input type="number" className="bg-background border border-border rounded-lg p-2 text-text-main w-full"
-                                value={settings?.lastCutTime || 18}
-                                onChange={(e) => onUpdateSettings({ lastCutTime: parseInt(e.target.value) })}
-                            />
-                        </div>
-                    </div>
                 </Card>
             </section>
 
@@ -698,6 +753,43 @@ function SortableBarberItem({ id, name, onDelete }: { id: string, name: string, 
                 <span className="font-bold text-text-main text-sm">{name}</span>
             </div>
             <button onClick={onDelete} className="text-text-secondary hover:text-red-500 material-icons text-sm opacity-0 group-hover:opacity-100 transition-opacity">close</button>
+        </div>
+    );
+}
+
+function ConfigInput({ label, value, onChange, type = "number" }: { label: string, value: string | number, onChange: (val: string | number) => void, type?: "number" | "time" }) {
+    const [localValue, setLocalValue] = useState<string | number>(value);
+
+    // Sync local value when external prop changes (e.g. from another client or server)
+    useEffect(() => {
+        setLocalValue(value);
+    }, [value]);
+
+    return (
+        <div>
+            <label className="block text-text-secondary text-xs font-bold uppercase tracking-wider mb-2">{label}</label>
+            <input
+                type={type}
+                className="bg-background border border-border rounded-lg p-2 text-text-main w-full focus:outline-none focus:border-primary transition-colors"
+                value={localValue}
+                onChange={(e) => {
+                    const rawVal = e.target.value;
+                    if (type === "number") {
+                        // Allow empty string to avoid leading zeros while typing
+                        if (rawVal === '') {
+                            setLocalValue('');
+                            onChange(0);
+                        } else {
+                            const parsed = parseInt(rawVal);
+                            setLocalValue(parsed);
+                            onChange(parsed);
+                        }
+                    } else {
+                        setLocalValue(rawVal);
+                        onChange(rawVal);
+                    }
+                }}
+            />
         </div>
     );
 }

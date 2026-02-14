@@ -5,7 +5,7 @@ import { ConnectionStatus } from '../components/ConnectionStatus';
 import type { BarberId } from '../types';
 
 export function RemotePortal() {
-    const { barbers, clients } = useQueue();
+    const { barbers, clients, settings } = useQueue();
 
     // Form State
     const [name, setName] = useState('');
@@ -14,6 +14,10 @@ export function RemotePortal() {
     const [selectedTime, setSelectedTime] = useState<number | null>(null);
     const [bookingConfirmed, setBookingConfirmed] = useState<{ id: string; time: number; waitTime: number } | null>(null);
     const [showUatControls, setShowUatControls] = useState(false);
+
+    const startHour = settings?.firstCutTime || 9;
+    const endHour = settings?.lastCutTime || 21;
+    const mvsMinutes = settings?.mvsMinutes || 15;
 
     // UAT Time Warp Listener
     useEffect(() => {
@@ -38,7 +42,7 @@ export function RemotePortal() {
     const generateSlots = () => {
         const today = new Date();
         const now = new Date();
-        const remainder = 15 - (now.getMinutes() % 15);
+        const remainder = mvsMinutes - (now.getMinutes() % mvsMinutes);
         const minStartRaw = now.getTime() + (remainder * 60000);
         const earliestStart = minStartRaw + (5 * 60000); // 5 min buffer
 
@@ -46,10 +50,10 @@ export function RemotePortal() {
 
         if (isSelectedDateToday) {
             const slots = [];
-            for (let i = 0; i < 16; i++) {
-                const slotTime = earliestStart + (i * 15 * 60000);
+            for (let i = 0; i < 24; i++) { // Increased range
+                const slotTime = earliestStart + (i * mvsMinutes * 60000);
                 const cutoff = new Date(today);
-                cutoff.setHours(21, 0, 0, 0);
+                cutoff.setHours(endHour, 0, 0, 0);
 
                 if (slotTime > Date.now() && slotTime < cutoff.getTime()) {
                     slots.push(slotTime);
@@ -58,10 +62,13 @@ export function RemotePortal() {
             return slots;
         } else {
             const startOfDay = new Date(selectedDate);
-            startOfDay.setHours(9, 0, 0, 0);
+            startOfDay.setHours(startHour, 0, 0, 0);
             const slots = [];
-            for (let i = 0; i < 16; i++) {
-                slots.push(startOfDay.getTime() + (i * 15 * 60000));
+            const minutesInDay = (endHour - startHour) * 60;
+            const slotCount = Math.floor(minutesInDay / mvsMinutes);
+
+            for (let i = 0; i < slotCount; i++) {
+                slots.push(startOfDay.getTime() + (i * mvsMinutes * 60000));
             }
             return slots;
         }

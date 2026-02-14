@@ -4,7 +4,7 @@ import { queueManager } from '../services/queueManager';
 import type { BarberId, Client, BarberState, Settings } from '../types';
 import { CalendarView } from '../components/CalendarView';
 import { ConnectionStatus } from '../components/ConnectionStatus';
-import { ProgressBar } from '../components/ProgressBar';
+import { ProgressRing } from '../components/ProgressRing';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -213,8 +213,8 @@ export function BarberDashboard() {
                 {/* Content Body */}
                 <main className="flex-1 overflow-hidden relative bg-background">
                     {activeTab === 'queue' && (
-                        <div className="absolute inset-0 overflow-x-auto p-4 scrollbar-hide">
-                            <div className="flex gap-4 h-full min-w-max">
+                        <div className="absolute inset-0 overflow-hidden p-4">
+                            <div className="grid grid-cols-4 gap-4 h-full w-full">
                                 {/* Barber Columns */}
                                 {barbers.map(barber => (
                                     <BarberColumnWrapper
@@ -227,6 +227,7 @@ export function BarberDashboard() {
                                         onToggleAvailability={() => queueManager.toggleBarberAvailability(barber.id, !barber.isAvailable)}
                                         onEditGroup={setEditingGroupClient}
                                         useServiceProgress={useServiceProgress}
+                                        settings={settings}
                                     />
                                 ))}
                             </div>
@@ -236,7 +237,7 @@ export function BarberDashboard() {
                     {activeTab === 'calendar' && (
                         <div className="h-full p-4">
                             <Card className="h-full flex flex-col bg-surface/50">
-                                <CalendarView onAddClient={handleCalendarAdd} />
+                                <CalendarView key={JSON.stringify(settings)} onAddClient={handleCalendarAdd} />
                             </Card>
                         </div>
                     )}
@@ -259,7 +260,7 @@ export function BarberDashboard() {
                 {/* Footer / Debug Bar */}
                 <footer className="h-10 px-4 bg-background border-t border-border flex items-center justify-between text-[10px] text-text-secondary font-medium shrink-0">
                     <div className="flex items-center gap-6">
-                        <span>Ver 0.8.5.3_120226</span>
+                        <span>Ver 0.8.6_MVP_Lock</span>
                         <span className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${true ? 'bg-primary' : 'bg-red-500'}`}></div>
                             HEADLESS UI
@@ -480,12 +481,12 @@ function BarberColumnWrapper({ barber, onCallNext, useServiceProgress, ...props 
         }
     };
 
-    return <BarberColumn {...props} barber={barber} onCallNext={handleCallNext} progress={isCompleting ? 100 : progress} />;
+    return <BarberColumn {...props} barber={barber} onCallNext={handleCallNext} progress={isCompleting ? 100 : progress} key={`${barber.id}-${JSON.stringify(props.settings)}`} />;
 }
 
 function BarberColumn({ barber, queue, inChair, onCallNext, onSnooze, onToggleAvailability, onEditGroup, progress }: BarberColumnProps) {
     return (
-        <div className="flex-1 min-w-[320px] max-w-[380px] flex flex-col gap-4 h-full">
+        <div className="flex flex-col gap-4 h-full min-w-0">
             {/* Barber Header Card */}
             <Card className={`p-4 flex items-center justify-between transition-all duration-200 shadow-m ${barber.isAvailable ? 'opacity-100' : 'opacity-60'}`}>
                 <div className="flex items-center gap-3">
@@ -536,13 +537,9 @@ function BarberColumn({ barber, queue, inChair, onCallNext, onSnooze, onToggleAv
                             </p>
                         </div>
 
-                        {/* Progress Bar Container */}
-                        <div className="flex-1 px-2 flex flex-col justify-center gap-2">
-                            <div className="flex justify-between items-center px-1">
-                                <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Service Progress</span>
-                                <span className="text-[9px] font-bold text-primary">{Math.round(progress)}%</span>
-                            </div>
-                            <ProgressBar progress={progress} />
+                        <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                            <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Progress</span>
+                            <ProgressRing progress={progress} size={56} strokeWidth={5} mode="deplete" />
                         </div>
                     </div>
                 ) : (
@@ -679,15 +676,43 @@ function SettingsView({ barbers, settings, onAddBarber, onRemoveBarber, sensors,
                     <ConfigInput
                         label="Shop Opening"
                         type="time"
-                        value={localSettings.firstCutTime || "09:00"}
-                        onChange={(val) => updateLocalSetting({ firstCutTime: String(val) })}
+                        value={String(localSettings.firstCutTime || 9).padStart(2, '0') + ":00"}
+                        onChange={(val) => {
+                            const hour = parseInt(String(val).split(':')[0]);
+                            updateLocalSetting({ firstCutTime: hour });
+                        }}
                     />
                     <ConfigInput
                         label="Shop Closing"
                         type="time"
-                        value={localSettings.lastCutTime || "18:00"}
-                        onChange={(val) => updateLocalSetting({ lastCutTime: String(val) })}
+                        value={String(localSettings.lastCutTime || 18).padStart(2, '0') + ":00"}
+                        onChange={(val) => {
+                            const hour = parseInt(String(val).split(':')[0]);
+                            updateLocalSetting({ lastCutTime: hour });
+                        }}
                     />
+                    <div className="col-span-2 pt-4 border-t border-border mt-2">
+                        <div className="flex justify-between items-center mb-4">
+                            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">
+                                MVS (Minimum Viable Slot): <span className="text-primary">{localSettings.mvsMinutes || 15}m</span>
+                            </label>
+                            <span className="text-[10px] text-text-tertiary italic">Snaps bookings to prevent fragmentation</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="5"
+                            max="30"
+                            step="5"
+                            className="w-full accent-primary bg-background h-1.5 rounded-lg appearance-none cursor-pointer"
+                            value={localSettings.mvsMinutes || 15}
+                            onChange={(e) => updateLocalSetting({ mvsMinutes: parseInt(e.target.value) })}
+                        />
+                        <div className="flex justify-between text-[10px] text-text-tertiary mt-2 font-bold px-1">
+                            <span>5m</span>
+                            <span>15m (Stable)</span>
+                            <span>30m</span>
+                        </div>
+                    </div>
                 </div>
             </section>
 

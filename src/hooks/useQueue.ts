@@ -12,10 +12,12 @@ export function useQueue() {
 
     useEffect(() => {
         const sync = () => {
+            const newSettings = queueManager.getSettings();
+            console.log('🔄 [UI-SYNC] Settings Updated:', newSettings);
             setData({
                 clients: queueManager.getClients(),
                 barbers: queueManager.getBarbers(),
-                settings: queueManager.getSettings(),
+                settings: newSettings,
                 isConnected: queueManager.getConnectionStatus()
             });
         };

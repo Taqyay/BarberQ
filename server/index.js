@@ -3,6 +3,13 @@ import { randomUUID } from 'crypto';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 
 const app = express();
 app.use(cors());
@@ -27,13 +34,86 @@ const DEFAULT_SETTINGS = {
   averageCutTimeMinutes: 20,
   remoteBufferMinutes: 30, // Default 30 min buffer
   firstCutTime: 9,
-  lastCutTime: 18
+  lastCutTime: 18,
+  mvsMinutes: 15, // Minimum Viable Slot
+  theme: 'golden-sand'
 };
 
 let state = {
   clients: [],
   barbers: DEFAULT_BARBERS,
   settings: DEFAULT_SETTINGS
+};
+
+// --- Settings Persistence ---
+const loadSettings = () => {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+      state.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      console.log('[SOVEREIGN] Settings loaded from local storage.');
+    }
+  } catch (err) {
+    console.error('[SOVEREIGN] Error loading settings:', err);
+  }
+};
+
+const saveSettings = () => {
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(state.settings, null, 2));
+    console.log('[SOVEREIGN] Settings persisted to local storage.');
+  } catch (err) {
+    console.error('[SOVEREIGN] Error saving settings:', err);
+  }
+};
+
+loadSettings();
+
+// --- Sovereign MVS Snapping Logic ---
+const getSnappedTime = (clientId, barberId, requestedTime, settings, allClients) => {
+  if (!barberId || barberId === 'next_available') return requestedTime;
+
+  const mvsMs = (settings.mvsMinutes || 15) * 60 * 1000;
+  const cutMs = (settings.averageCutTimeMinutes || 20) * 60 * 1000;
+
+  // Filter clients for this barber on the same day
+  const d = new Date(requestedTime);
+  const dayStart = new Date(d).setHours(0, 0, 0, 0);
+  const dayEnd = new Date(d).setHours(23, 59, 59, 999);
+
+  const neighbors = allClients.filter(c =>
+    c.id !== clientId &&
+    (c.assignedBarber === barberId || c.barberPreference === barberId) &&
+    c.reservationTime >= dayStart &&
+    c.reservationTime <= dayEnd &&
+    c.status !== 'cancelled' &&
+    c.status !== 'finished'
+  ).sort((a, b) => a.reservationTime - b.reservationTime);
+
+  console.log(`[SOVEREIGN] getSnappedTime for ${clientId}: Found ${neighbors.length} neighbors for ${barberId}.`);
+  neighbors.forEach(n => console.log(` - Neighbor ${n.id}: ${new Date(n.reservationTime).toLocaleTimeString()}`));
+
+  let snappedTime = requestedTime;
+
+  // Tetris Gap Checking: Ensure no gaps smaller than MVS
+  for (const n of neighbors) {
+    const nStart = n.reservationTime;
+    const nEnd = nStart + cutMs;
+
+    // Check gap before neighbor
+    const gapBefore = nStart - (snappedTime + cutMs);
+    if (gapBefore > 0 && gapBefore < mvsMs) {
+      snappedTime = nStart - cutMs;
+    }
+
+    // Check gap after neighbor
+    const gapAfter = snappedTime - nEnd;
+    if (gapAfter > 0 && gapAfter < mvsMs) {
+      snappedTime = nEnd;
+    }
+  }
+
+  return snappedTime;
 };
 
 const handleCallNext = (barberId) => {
@@ -228,6 +308,8 @@ io.on('connection', (socket) => {
     console.log('RECEIVED JOIN_REMOTE:', payload);
     const { id, name, preference, groupSize, travelTime, reservationTime } = payload;
     const now = Date.now();
+    const snappedTime = getSnappedTime(id, preference, reservationTime || now, state.settings, state.clients);
+
     const newClient = {
       id: id || randomUUID(),
       name,
@@ -238,8 +320,8 @@ io.on('connection', (socket) => {
       source: 'remote',
       groupSize: groupSize || 1,
       remainingSize: groupSize || 1,
-      travelTime: travelTime, // Deprecated in v0.4.5 but kept for backward compatibility if needed
-      reservationTime: reservationTime || now, // V0.4.5 Smart Timeslot
+      travelTime: travelTime,
+      reservationTime: snappedTime,
       lastTravelUpdate: now
     };
 
@@ -309,6 +391,7 @@ io.on('connection', (socket) => {
 
   socket.on('UPDATE_SETTINGS', (newSettings) => {
     state.settings = { ...state.settings, ...newSettings };
+    saveSettings();
     io.emit('SYNC_STATE', state);
   });
 
@@ -343,20 +426,18 @@ io.on('connection', (socket) => {
   socket.on('UPDATE_CLIENT_TIME_SLOT', ({ clientId, newTime, barberId }) => {
     state.clients = state.clients.map(c => {
       if (c.id === clientId) {
-        // If barberId is provided (dragged to a specific barber's column), update preference
+        // Apply Sovereign Snapping
+        const finalBarberId = barberId || c.assignedBarber || c.barberPreference;
+        const snappedTime = getSnappedTime(clientId, finalBarberId, newTime, state.settings, state.clients);
+
         const updates = {
-          reservationTime: newTime,
-          // If dragging to a specific barber, set expectation.
-          // Note: If they were assigned, we might need to clear assignedBarber if moving to a different one? 
-          // For now, let's just set preference. The queue logic handles assignment.
+          reservationTime: snappedTime,
           ...(barberId ? { barberPreference: barberId, assignedBarber: null } : {})
         };
         return { ...c, ...updates };
       }
       return c;
     });
-    // Trigger sorting/assignment pass?
-    // For now, just sync. The queue display logic handles sorting on render/getters.
     io.emit('SYNC_STATE', state);
   });
 

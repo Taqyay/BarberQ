@@ -25,8 +25,10 @@ export interface Settings {
   snoozeDurationMinutes: number;
   averageCutTimeMinutes: number;
   remoteBufferMinutes: number; // Configurable buffer for smart timeslots
-  firstCutTime: string; // "HH:mm" format for opening
-  lastCutTime: string; // "HH:mm" format for last booking
+  firstCutTime: number; // Opening hour (e.g., 9)
+  lastCutTime: number; // Closing hour (e.g., 18)
+  mvsMinutes: number; // Minimum Viable Slot for booking gaps
+  theme?: string;
 }
 
 export interface BarberState {

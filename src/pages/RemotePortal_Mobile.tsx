@@ -48,12 +48,12 @@ export function RemotePortal_Mobile() {
         // Smart Availability Formula: Now + (ActiveQueue * AvgCutTime / ActiveBarbers) + Buffer
         const waitingCount = clients.filter(c => c.status === 'waiting' || c.status === 'in_chair').length;
         const activeBarbers = barbers.filter(b => b.isAvailable).length || 1;
-        const avgCutTime = 20; // Fixed 20m for now per prompt
+        const avgCutTime = 20;
         const queueDelayMinutes = Math.ceil((waitingCount * avgCutTime) / activeBarbers);
-
         const totalDelay = queueDelayMinutes + bufferMinutes;
 
-        const remainder = 15 - (now.getMinutes() % 15);
+        const mvsMinutes = settings?.mvsMinutes ?? 15;
+        const remainder = mvsMinutes - (now.getMinutes() % mvsMinutes);
         const minStartRaw = now.getTime() + (remainder * 60000);
         const earliestStart = minStartRaw + (totalDelay * 60000);
 
@@ -75,7 +75,7 @@ export function RemotePortal_Mobile() {
 
             while (slotTime < cutoff.getTime()) {
                 slots.push(slotTime);
-                slotTime += (15 * 60 * 1000);
+                slotTime += (mvsMinutes * 60 * 1000);
             }
         } else {
             const startOfDay = new Date(selectedDate);
@@ -86,7 +86,7 @@ export function RemotePortal_Mobile() {
             let slotTime = startOfDay.getTime();
             while (slotTime < cutoff.getTime()) {
                 slots.push(slotTime);
-                slotTime += (15 * 60 * 1000);
+                slotTime += (mvsMinutes * 60 * 1000);
             }
         }
         return slots;

@@ -196,10 +196,10 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
                     ))}
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: 'repeating-linear-gradient(0deg, #1a1d24 0px, transparent 1px, transparent 59px, #1a1d24 60px)' }}>
+                <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: `repeating-linear-gradient(0deg, #1a1d24 0px, transparent 1px, transparent ${60 * PIXELS_PER_MINUTE - 1}px, #1a1d24 ${60 * PIXELS_PER_MINUTE}px)` }}>
 
                     {Array.from({ length: currentEndHour - startHour + 1 }, (_, i) => i + startHour).map(hour => (
-                        <div key={hour} style={{
+                        <div key={hour} className="calendar-time-label" style={{
                             position: 'absolute',
                             top: (hour - startHour) * 60 * PIXELS_PER_MINUTE,
                             left: 0, width: '60px', textAlign: 'right', paddingRight: '10px',
@@ -223,8 +223,9 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
                             >
                                 {/* Render Soft-Lock Zones (Behind events) */}
                                 {events.filter(e => e.barberId === b.id && e.type === 'remote').map(evt => {
-                                    // Soft Lock: 30 mins before start
-                                    const bufferMs = 30 * 60000;
+                                    // Soft Lock: Dynamic buffer from settings
+                                    const bufferMins = settings?.remoteBufferMinutes || 30;
+                                    const bufferMs = bufferMins * 60000;
                                     const lockStart = evt.startTime - bufferMs;
                                     const top = getTopOffset(lockStart, startHour);
                                     const height = (bufferMs / 60000) * PIXELS_PER_MINUTE;
@@ -250,14 +251,14 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
                                 })}
 
                                 {events.filter(e => e.barberId === b.id).map(evt => (
-                                    <DraggableEvent key={evt.id} event={evt} startHour={startHour} />
+                                    <DraggableEvent key={evt.id} event={evt} startHour={startHour} settings={settings} />
                                 ))}
                             </DroppableColumn>
                         ))}
                     </div>
                 </div>
                 <DragOverlay>
-                    {draggedEvent ? <EventCard event={draggedEvent} isOverlay /> : null}
+                    {draggedEvent ? <EventCard event={draggedEvent} settings={settings} isOverlay /> : null}
                 </DragOverlay>
             </div>
         </DndContext>
@@ -277,7 +278,7 @@ function DroppableColumn({ id, children, onClick }: { id: string, children: Reac
     );
 }
 
-function DraggableEvent({ event, startHour }: { event: CalendarEvent, startHour: number }) {
+function DraggableEvent({ event, startHour, settings }: { event: CalendarEvent, startHour: number, settings: any }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.id, data: event });
     const style = {
         transform: CSS.Translate.toString(transform),
@@ -289,12 +290,12 @@ function DraggableEvent({ event, startHour }: { event: CalendarEvent, startHour:
     // Stop propagation on click to allow dragging without triggering column click
     return (
         <div ref={setNodeRef} style={style} {...listeners} {...attributes} onClick={(e) => e.stopPropagation()}>
-            <EventCard event={event} />
+            <EventCard event={event} settings={settings} />
         </div>
     );
 }
 
-function EventCard({ event, isOverlay }: { event: CalendarEvent, isOverlay?: boolean }) {
+function EventCard({ event, settings, isOverlay }: { event: CalendarEvent, settings: any, isOverlay?: boolean }) {
     const isRemote = event.type === 'remote';
     const isInChair = event.type === 'in-chair';
     const isFinished = event.type === 'finished';
@@ -326,8 +327,10 @@ function EventCard({ event, isOverlay }: { event: CalendarEvent, isOverlay?: boo
             </div>
             {isRemote && !isOverlay && (
                 <div style={{
-                    position: 'absolute', top: -30 * PIXELS_PER_MINUTE + 'px', left: 0, right: 0,
-                    height: 30 * PIXELS_PER_MINUTE + 'px',
+                    position: 'absolute',
+                    top: -(settings?.remoteBufferMinutes || 30) * PIXELS_PER_MINUTE + 'px',
+                    left: 0, right: 0,
+                    height: (settings?.remoteBufferMinutes || 30) * PIXELS_PER_MINUTE + 'px',
                     background: 'linear-gradient(to bottom, transparent, rgba(234, 179, 8, 0.1))',
                     pointerEvents: 'none', borderRadius: '6px 6px 0 0'
                 }} title="Soft-Lock Buffer" />

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { queueManager } from '../services/queueManager';
 
 export type ThemeId = 'sovereign-cobalt' | 'golden-sand' | 'classic-slate';
 
@@ -16,15 +17,28 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
 
     useEffect(() => {
+        const unsubscribe = queueManager.subscribe(() => {
+            const settings = queueManager.getSettings();
+            if (settings.theme && settings.theme !== theme) {
+                setThemeState(settings.theme as ThemeId);
+            }
+        });
+        return unsubscribe;
+    }, [theme]);
+
+    useEffect(() => {
         console.log('🎨 Setting theme:', theme);
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('barberq-theme', theme);
-        console.log('✅ data-theme attribute set to:', document.documentElement.getAttribute('data-theme'));
-        console.log('🎨 CSS Variable --color-primary:', getComputedStyle(document.documentElement).getPropertyValue('--color-primary'));
     }, [theme]);
 
     const setTheme = (newTheme: ThemeId) => {
         setThemeState(newTheme);
+        // Persist to server if it differs from current server setting
+        const currentServerTheme = queueManager.getSettings().theme;
+        if (newTheme !== currentServerTheme) {
+            queueManager.updateSettings({ theme: newTheme });
+        }
     };
 
     return (

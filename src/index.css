@@ -41,6 +41,45 @@
   --radius-xl: 24px;
 }
 
+html,
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease;
+}
+
+:root[data-theme="sovereign-cobalt"] {
+  --color-primary: #1B22B1;
+  --color-surface: #0A0C10;
+  --color-surfaceHighlight: #161B22;
+  --color-background: #010409;
+  --color-border: #30363D;
+
+  --color-text-main: #F0F6FC;
+  --color-text-secondary: #8B949E;
+  --color-text-tertiary: #484F58;
+
+  --font-heading: 'Archivo', sans-serif;
+  --font-body: 'Archivo', sans-serif;
+}
+
+:root[data-theme="classic-slate"] {
+  --color-primary: #41484a;
+  --color-surface: #f1f3f4;
+  --color-surfaceHighlight: #e8eaed;
+  --color-background: #ffffff;
+  --color-border: #dadce0;
+
+  --color-text-main: #202124;
+  --color-text-secondary: #5f6368;
+  --color-text-tertiary: #9aa0a6;
+
+  --font-heading: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
 /* Utilities */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

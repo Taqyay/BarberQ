@@ -16,7 +16,8 @@ export class QueueManager {
       averageCutTimeMinutes: 20,
       remoteBufferMinutes: 30,
       firstCutTime: 9,
-      lastCutTime: 18
+      lastCutTime: 18,
+      mvsMinutes: 15
     }
   };
   private isConnected = false;

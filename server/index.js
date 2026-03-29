@@ -12,15 +12,20 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+const app = express();
+const PORT = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Enforce MONGO_URI in production
+// Enforce Database Presence in Production
 const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI && NODE_ENV === 'production') {
-  console.error('[SOVEREIGN] FATAL: MONGO_URI is not set in production.');
+if (NODE_ENV === 'production' && !MONGO_URI) {
+  console.error('[SOVEREIGN] FATAL: MONGO_URI is missing in production environment. Halting.');
   process.exit(1);
 }
+
 const DB_URI = MONGO_URI || 'mongodb://localhost:27017/barberq';
+
+console.log(`[SOVEREIGN] Runtime: ${NODE_ENV} | DB: ${MONGO_URI ? 'SECURED' : 'LOCAL'}`);
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -28,11 +33,9 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3001',
   'http://localhost:3002',
   'https://barberq-491721.a.run.app',
-  'https://barberq-v1-651913574031.europe-west1.run.app'
+  'https://barberq-v1-651913574031.europe-west1.run.app',
+  'https://barberq-v1-d57ut6nj3q-ew.a.run.app'
 ];
-
-const app = express();
-const PORT = process.env.PORT || 3001;
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -93,9 +96,15 @@ app.get('/health', (req, res) => {
 
 // Serve Static Assets in Production
 if (NODE_ENV === 'production') {
-  const distPath = path.resolve(process.cwd(), 'dist');
-  console.log(`[SOVEREIGN] Serving static files from: ${distPath}`);
+  const rootDir = process.cwd();
+  const distPath = path.resolve(rootDir, 'dist');
   
+  if (!fs.existsSync(distPath)) {
+    console.error(`[SOVEREIGN] FATAL: Static directory missing at ${distPath}`);
+    process.exit(1);
+  }
+  
+  console.log(`[SOVEREIGN] Serving static assets from: ${distPath}`);
   app.use(express.static(distPath));
   
   // SPA Catch-all

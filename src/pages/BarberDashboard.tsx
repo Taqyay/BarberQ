@@ -260,7 +260,7 @@ export function BarberDashboard() {
                 {/* Footer / Debug Bar */}
                 <footer className="h-10 px-4 bg-background border-t border-border flex items-center justify-between text-[10px] text-text-secondary font-medium shrink-0">
                     <div className="flex items-center gap-6">
-                        <span>Ver 0.8.6_MVP_Lock</span>
+                        <span>Ver 1.0_290326</span>
                         <span className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${true ? 'bg-primary' : 'bg-red-500'}`}></div>
                             HEADLESS UI

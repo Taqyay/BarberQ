@@ -1,7 +1,7 @@
 {
   "name": "barberq",
   "private": true,
-  "version": "0.8.6_MVP_Lock",
+  "version": "1.0_290326",
   "type": "module",
   "scripts": {
     "dev": "vite",

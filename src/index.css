@@ -8,8 +8,8 @@
 :root[data-theme="golden-sand"],
 :root {
   /* Stitch Light Theme */
-  --color-primary: #C5A05F;
-  /* Soft gold */
+  --color-primary: #C5A059;
+  /* Antique Gold */
   --color-surface: #FFFFFF;
   /* Pure white cards */
   --color-surfaceHighlight: #F8F7F4;
@@ -26,8 +26,8 @@
   --color-text-tertiary: #9E9E9E;
   /* Light gray */
 
-  --font-heading: 'Inter', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-heading: 'Manrope', sans-serif;
+  --font-body: 'Manrope', sans-serif;
 
   /* Shadows - soft and subtle */
   --shadow-s: 0 1px 3px rgba(0, 0, 0, 0.08);

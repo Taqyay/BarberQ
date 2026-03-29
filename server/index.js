@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import { randomUUID } from 'crypto';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,13 +13,101 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'https://barberq-491721.a.run.app',
+  'https://barberq-491721.ue.r.appspot.com'
+];
+
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 3001;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/barberq';
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+// --- MongoDB Schema & Models ---
+const SettingSchema = new mongoose.Schema({
+  key: { type: String, default: 'global' },
+  snoozeEnabled: Boolean,
+  snoozeDurationMinutes: Number,
+  averageCutTimeMinutes: Number,
+  remoteBufferMinutes: Number,
+  firstCutTime: Number,
+  lastCutTime: Number,
+  mvsMinutes: Number,
+  theme: String
+});
+
+const ClientSchema = new mongoose.Schema({
+  id: String,
+  name: String,
+  barberPreference: String,
+  assignedBarber: String,
+  status: String,
+  checkInTime: Number,
+  originalCheckInTime: Number,
+  source: String,
+  groupSize: Number,
+  remainingSize: Number,
+  travelTime: String,
+  reservationTime: Number,
+  serviceStartTime: Number,
+  serviceEndTime: Number,
+  snoozeStartTime: Number
+}, { timestamps: true });
+
+const Setting = mongoose.model('Setting', SettingSchema);
+const ClientModel = mongoose.model('Client', ClientSchema);
+
+// --- Health Check ---
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    mode: useDB ? 'atlas' : 'local'
+  });
+});
+
+// --- Static Assets (Production) ---
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// --- SPA Catch-all Routing ---
+// Must be AFTER API and Health routes
+app.get(/^(?!\/api|\/health).*$/, (req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend not built. Run npm run build.');
+  }
+});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST"]
   }
 });
@@ -32,10 +122,10 @@ const DEFAULT_SETTINGS = {
   snoozeEnabled: true,
   snoozeDurationMinutes: 5,
   averageCutTimeMinutes: 20,
-  remoteBufferMinutes: 30, // Default 30 min buffer
+  remoteBufferMinutes: 30,
   firstCutTime: 9,
   lastCutTime: 18,
-  mvsMinutes: 15, // Minimum Viable Slot
+  mvsMinutes: 15,
   theme: 'golden-sand'
 };
 
@@ -45,29 +135,69 @@ let state = {
   settings: DEFAULT_SETTINGS
 };
 
-// --- Settings Persistence ---
-const loadSettings = () => {
+// --- Settings Persistence (Refactored for MongoDB) ---
+const syncStateWithDB = async () => {
   try {
-    if (fs.existsSync(SETTINGS_FILE)) {
-      const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
-      state.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
-      console.log('[SOVEREIGN] Settings loaded from local storage.');
+    if (useDB) {
+      // Sync Settings
+      let dbSettings = await Setting.findOne({ key: 'global' });
+      if (!dbSettings) {
+        dbSettings = await Setting.create(DEFAULT_SETTINGS);
+      }
+      state.settings = dbSettings.toObject();
+
+      // Sync Active Clients
+      const activeClients = await ClientModel.find({ 
+        status: { $in: ['waiting', 'in_chair', 'snoozed'] } 
+      });
+      state.clients = activeClients.map(c => c.toObject());
+      console.log('[SOVEREIGN] State synchronized with MongoDB Atlas.');
     }
+    io.emit('SYNC_STATE', state);
   } catch (err) {
-    console.error('[SOVEREIGN] Error loading settings:', err);
+    console.error('[SOVEREIGN] DB Sync Error:', err);
   }
 };
 
-const saveSettings = () => {
+const saveSettings = async (newSettings) => {
   try {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(state.settings, null, 2));
-    console.log('[SOVEREIGN] Settings persisted to local storage.');
+    state.settings = { ...state.settings, ...newSettings };
+    if (useDB) {
+      await Setting.findOneAndUpdate({ key: 'global' }, newSettings, { upsert: true });
+    } else {
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(state.settings, null, 2));
+    }
+    console.log('[SOVEREIGN] Settings persisted.');
   } catch (err) {
     console.error('[SOVEREIGN] Error saving settings:', err);
   }
 };
 
-loadSettings();
+let useDB = false;
+
+// Connect to MongoDB with timeout
+const connectDB = async () => {
+  try {
+    console.log(`[SOVEREIGN] Connecting to ${MONGO_URI}...`);
+    await mongoose.connect(MONGO_URI, { 
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
+    console.log('[SOVEREIGN] Connected to MongoDB Atlas.');
+    useDB = true;
+    await syncStateWithDB();
+  } catch (err) {
+    console.error('[SOVEREIGN] MongoDB Connection Failed. Falling back to Local Persistence.');
+    useDB = false;
+    // Fallback: Read from settings.json if exists
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+      state.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+    }
+  }
+};
+
+connectDB();
 
 // --- Sovereign MVS Snapping Logic ---
 const getSnappedTime = (clientId, barberId, requestedTime, settings, allClients) => {
@@ -116,144 +246,122 @@ const getSnappedTime = (clientId, barberId, requestedTime, settings, allClients)
   return snappedTime;
 };
 
-const handleCallNext = (barberId) => {
-  // 0. Check Barber Availability
+const handleCallNext = async (barberId) => {
   const barber = state.barbers.find(b => b.id === barberId);
   const isAway = barber ? !barber.isAvailable : false;
-
-  // 1. Finish currently assigned client (if in chair)
-  // BUG FIX: Ensure we timestamp when they finished for history tracking
   const now = Date.now();
-  let clientFinished = false;
-  state.clients = state.clients.map(c => {
-    if (c.status === 'in_chair' && (c.assignedBarber === barberId || (c.barberPreference === barberId && !c.assignedBarber))) {
-      clientFinished = true;
-      return { ...c, status: 'finished', serviceEndTime: now };
-    }
-    return c;
-  });
 
-  // If barber is AWAY, stop here. Do not assign next.
+  // 1. Finish current client
+  if (useDB) {
+    await ClientModel.updateMany(
+      { status: 'in_chair', $or: [{ assignedBarber: barberId }, { barberPreference: barberId, assignedBarber: null }] },
+      { status: 'finished', serviceEndTime: now }
+    );
+  } else {
+    state.clients = state.clients.map(c => {
+      if (c.status === 'in_chair' && (c.assignedBarber === barberId || (c.barberPreference === barberId && !c.assignedBarber))) {
+        return { ...c, status: 'finished', serviceEndTime: now };
+      }
+      return c;
+    });
+  }
+
   if (isAway) {
-    if (clientFinished) io.emit('SYNC_STATE', state);
+    await syncStateWithDB();
     return;
   }
 
   // 2. Find next best candidate
-  const candidates = state.clients.filter(c =>
-    c.status === 'waiting' &&
-    (c.barberPreference === barberId || c.barberPreference === 'next_available')
+  const candidates = state.clients.filter(c => 
+    c.status === 'waiting' && (c.barberPreference === barberId || c.barberPreference === 'next_available')
   ).sort((a, b) => {
-    // PRIORITY LEAPFROG (S1/S4 -> S2):
-    // If checkInTime is 0, this client was SNOOZED and is now REACTIVATED.
-    // They must go to the top.
     const isLeapfrogA = a.checkInTime === 0;
     const isLeapfrogB = b.checkInTime === 0;
+    if (isLeapfrogA && !isLeapfrogB) return -1;
+    if (!isLeapfrogA && isLeapfrogB) return 1;
+    if (isLeapfrogA && isLeapfrogB) return a.originalCheckInTime - b.originalCheckInTime;
 
-    if (isLeapfrogA && !isLeapfrogB) return -1; // A comes first
-    if (!isLeapfrogA && isLeapfrogB) return 1;  // B comes first
-    if (isLeapfrogA && isLeapfrogB) {
-      // Both are leapfrogging, fall back to who arrived originally first
-      return a.originalCheckInTime - b.originalCheckInTime;
-    }
-
-    // NORMAL LOGIC:
     const getEffectiveTime = (c) => {
-      // RULE: Smart Timeslot / Reservation
-      if (c.reservationTime) {
-        return c.reservationTime;
-      }
-
-      // Base time is when they checked in (or originally checked in)
-      // If we used originalCheckInTime blindly, we'd lose the 'reset' effect, 
-      // but here we are in the 'Normal' block where checkInTime != 0.
+      if (c.reservationTime) return c.reservationTime;
       let time = c.originalCheckInTime || c.checkInTime;
-
-      // Legacy Remote Penalty (kept for backward compatibility or non-reserved remote)
-      // RULE: Remote Penalty? (User mentioned "Prioritize In-Shop over Remote")
-      // If Remote & Travel > 30, maybe push back? 
-      if (c.source === 'remote' && c.travelTime === '30+' && !c.reservationTime) {
-        time += (30 * 60 * 1000);
-      }
-
-      // VERSION 3 MOVED TO FUTURE: Preferred Barber Bias removed.
-
+      if (c.source === 'remote' && c.travelTime === '30+' && !c.reservationTime) time += (30 * 60 * 1000);
       return time;
     };
-
-    const timeA = getEffectiveTime(a);
-    const timeB = getEffectiveTime(b);
-
-    // DEBUG SORTING
-    // console.log(`Comparing ${a.name} (${timeA}) vs ${b.name} (${timeB}) -> ${timeA - timeB}`);
-
-    return timeA - timeB;
+    return getEffectiveTime(a) - getEffectiveTime(b);
   });
-
-  // LOG CANDIDATES
-  console.log('Candidates for', barberId, candidates.map(c => `${c.name}:${c.reservationTime || 'NoRes'}`));
-
-  if (candidates.length === 0) {
-    // BUG FIX: Must emit state if we changed client status (finished someone) even if no one next
-    io.emit('SYNC_STATE', state);
-    return;
-  }
 
   if (candidates.length > 0) {
     const nextClient = candidates[0];
-
-    // Check for Group/Family Logic
     if (nextClient.remainingSize && nextClient.remainingSize > 1) {
-      // SPLIT: Decrement remaining size of the waiting entry
-      state.clients = state.clients.map(c =>
-        c.id === nextClient.id
-          ? { ...c, remainingSize: c.remainingSize - 1 }
-          : c
-      );
-
-      // Create a specific entry for the person going to the chair
-      const currentPersonIndex = (nextClient.groupSize || nextClient.remainingSize) - (nextClient.remainingSize - 1);
-      const splitClient = {
-        ...nextClient,
-        id: nextClient.id + '_split_' + Date.now(), // Temporary ID for the individual
-        name: `${nextClient.name} (${currentPersonIndex}/${nextClient.groupSize})`,
-        status: 'in_chair',
-        assignedBarber: barberId,
-        serviceStartTime: Date.now(),
-        remainingSize: 0, // Individual has no remaining stack
-        groupSize: 1
-      };
-      state.clients.push(splitClient);
-
+      // Group Split Logic
+      if (useDB) {
+        await ClientModel.findOneAndUpdate({ id: nextClient.id }, { remainingSize: nextClient.remainingSize - 1 });
+        const currentPersonIndex = (nextClient.groupSize || nextClient.remainingSize) - (nextClient.remainingSize - 1);
+        await ClientModel.create({
+          ...nextClient,
+          _id: new mongoose.Types.ObjectId(),
+          id: nextClient.id + '_split_' + Date.now(),
+          name: `${nextClient.name} (${currentPersonIndex}/${nextClient.groupSize})`,
+          status: 'in_chair',
+          assignedBarber: barberId,
+          serviceStartTime: Date.now(),
+          remainingSize: 0,
+          groupSize: 1
+        });
+      } else {
+        state.clients = state.clients.map(c => 
+          c.id === nextClient.id ? { ...c, remainingSize: c.remainingSize - 1 } : c
+        );
+        const currentPersonIndex = (nextClient.groupSize || nextClient.remainingSize) - (nextClient.remainingSize - 1);
+        state.clients.push({
+          ...nextClient,
+          id: nextClient.id + '_split_' + Date.now(),
+          name: `${nextClient.name} (${currentPersonIndex}/${nextClient.groupSize})`,
+          status: 'in_chair',
+          assignedBarber: barberId,
+          serviceStartTime: Date.now(),
+          remainingSize: 0,
+          groupSize: 1
+        });
+      }
     } else {
-      // NORMAL: Move whole entry to chair
-      state.clients = state.clients.map(c =>
-        c.id === nextClient.id
-          ? { ...c, status: 'in_chair', assignedBarber: barberId, serviceStartTime: Date.now() }
-          : c
-      );
+      if (useDB) {
+        await ClientModel.findOneAndUpdate({ id: nextClient.id }, { status: 'in_chair', assignedBarber: barberId, serviceStartTime: Date.now() });
+      } else {
+        state.clients = state.clients.map(c => 
+          c.id === nextClient.id ? { ...c, status: 'in_chair', assignedBarber: barberId, serviceStartTime: Date.now() } : c
+        );
+      }
     }
   }
 
-  io.emit('SYNC_STATE', state);
+  await syncStateWithDB();
 };
 
 // Background Worker: Auto-cancel snoozed clients dynamically
-setInterval(() => {
+setInterval(async () => {
   if (!state.settings.snoozeEnabled) return;
   const now = Date.now();
   const snoozeLimit = state.settings.snoozeDurationMinutes * 60 * 1000;
 
-  let changed = false;
-  state.clients = state.clients.map(c => {
-    if (c.status === 'snoozed' && c.snoozeStartTime && (now - c.snoozeStartTime > snoozeLimit)) {
-      changed = true;
-      return { ...c, status: 'cancelled' };
-    }
-    return c;
-  });
-  if (changed) io.emit('SYNC_STATE', state);
-}, 10000); // Check every 10 seconds
+  if (useDB) {
+    const results = await ClientModel.updateMany(
+      { status: 'snoozed', snoozeStartTime: { $lt: now - snoozeLimit } },
+      { status: 'cancelled' }
+    );
+    if (results.modifiedCount > 0) await syncStateWithDB();
+  } else {
+    let changed = false;
+    state.clients = state.clients.map(c => {
+      if (c.status === 'snoozed' && c.snoozeStartTime && (now - c.snoozeStartTime > snoozeLimit)) {
+        changed = true;
+        return { ...c, status: 'cancelled' };
+      }
+      return c;
+    });
+    if (changed) io.emit('SYNC_STATE', state);
+  }
+}, 10000);
 
 io.on('connection', (socket) => {
   console.log('Client connected', socket.id);
@@ -286,36 +394,39 @@ io.on('connection', (socket) => {
     io.emit('SYNC_STATE', state);
   });
 
-  socket.on('JOIN_QUEUE', (payload) => {
+  socket.on('JOIN_QUEUE', async (payload) => {
     const { id, name, preference, source } = payload;
     const now = Date.now();
-    const newClient = {
+    const newClientData = {
       id: id || randomUUID(),
       name,
       barberPreference: preference,
       status: 'waiting',
       checkInTime: now,
-      originalCheckInTime: now, // Capture initial time for leapfrog
+      originalCheckInTime: now,
       source: source || 'qr',
       groupSize: payload.groupSize || 1,
       remainingSize: payload.groupSize || 1
     };
-    state.clients.push(newClient);
-    io.emit('SYNC_STATE', state);
+    if (useDB) {
+      await ClientModel.create(newClientData);
+    } else {
+      state.clients.push(newClientData);
+    }
+    await syncStateWithDB();
   });
 
-  socket.on('JOIN_REMOTE', (payload) => {
-    console.log('RECEIVED JOIN_REMOTE:', payload);
+  socket.on('JOIN_REMOTE', async (payload) => {
     const { id, name, preference, groupSize, travelTime, reservationTime } = payload;
     const now = Date.now();
     const snappedTime = getSnappedTime(id, preference, reservationTime || now, state.settings, state.clients);
 
-    const newClient = {
+    const newClientData = {
       id: id || randomUUID(),
       name,
       barberPreference: preference,
       status: 'waiting',
-      checkInTime: now, // Initial check-in
+      checkInTime: now,
       originalCheckInTime: now,
       source: 'remote',
       groupSize: groupSize || 1,
@@ -325,15 +436,21 @@ io.on('connection', (socket) => {
       lastTravelUpdate: now
     };
 
-    state.clients.push(newClient);
-    io.emit('SYNC_STATE', state);
+    if (useDB) {
+      await ClientModel.create(newClientData);
+    } else {
+      state.clients.push(newClientData);
+    }
+    await syncStateWithDB();
   });
 
-  socket.on('CANCEL_CLIENT', (clientId) => {
-    state.clients = state.clients.map(c =>
-      c.id === clientId ? { ...c, status: 'cancelled' } : c
-    );
-    io.emit('SYNC_STATE', state);
+  socket.on('CANCEL_CLIENT', async (clientId) => {
+    if (useDB) {
+      await ClientModel.findOneAndUpdate({ id: clientId }, { status: 'cancelled' });
+    } else {
+      state.clients = state.clients.map(c => c.id === clientId ? { ...c, status: 'cancelled' } : c);
+    }
+    await syncStateWithDB();
   });
 
   socket.on('TOGGLE_SHIFT', ({ barberId, isAvailable }) => {
@@ -343,69 +460,74 @@ io.on('connection', (socket) => {
     io.emit('SYNC_STATE', state);
   });
 
-  socket.on('CALL_NEXT', (barberId) => {
-    handleCallNext(barberId);
+  socket.on('CALL_NEXT', async (barberId) => {
+    await handleCallNext(barberId);
   });
 
-  socket.on('FINISH_CLIENT', (clientId) => {
-    console.log('RECEIVED FINISH_CLIENT', clientId);
-    state.clients = state.clients.map(c =>
-      c.id === clientId ? { ...c, status: 'finished', serviceEndTime: Date.now() } : c
-    );
-    io.emit('SYNC_STATE', state);
-  });
-
-  socket.on('SNOOZE_CLIENT', (clientId) => {
-    if (!state.settings.snoozeEnabled) return;
-    let barberToUpdate = null;
-    state.clients = state.clients.map(c => {
-      if (c.id === clientId) {
-        // If they were assigned to someone, track who, so we can call next for them
-        if (c.assignedBarber) barberToUpdate = c.assignedBarber;
-        return {
-          ...c,
-          status: 'snoozed',
-          snoozeStartTime: Date.now(),
-          assignedBarber: undefined
-        };
-      }
-      return c;
-    });
-
-    // Leapfrog: Immediately call next for the barber who just snoozed someone
-    if (barberToUpdate) {
-      handleCallNext(barberToUpdate);
+  socket.on('FINISH_CLIENT', async (clientId) => {
+    if (useDB) {
+      await ClientModel.findOneAndUpdate({ id: clientId }, { status: 'finished', serviceEndTime: Date.now() });
     } else {
-      io.emit('SYNC_STATE', state); // Just sync if they weren't assigned
+      state.clients = state.clients.map(c => c.id === clientId ? { ...c, status: 'finished', serviceEndTime: Date.now() } : c);
+    }
+    await syncStateWithDB();
+  });
+
+  socket.on('SNOOZE_CLIENT', async (clientId) => {
+    if (!state.settings.snoozeEnabled) return;
+    const client = state.clients.find(c => c.id === clientId);
+    if (!client) return;
+
+    const barberToUpdate = client.assignedBarber;
+    if (useDB) {
+      await ClientModel.findOneAndUpdate(
+        { id: clientId },
+        { status: 'snoozed', snoozeStartTime: Date.now(), assignedBarber: undefined }
+      );
+    } else {
+      state.clients = state.clients.map(c => 
+        c.id === clientId ? { ...c, status: 'snoozed', snoozeStartTime: Date.now(), assignedBarber: undefined } : c
+      );
+    }
+
+    if (barberToUpdate) {
+      await handleCallNext(barberToUpdate);
+    } else {
+      await syncStateWithDB();
     }
   });
 
-  socket.on('REACTIVATE_CLIENT', (clientId) => {
-    state.clients = state.clients.map(c =>
-      c.id === clientId
-        ? { ...c, status: 'waiting', snoozeStartTime: undefined, checkInTime: 0 } // Priority #1
-        : c
-    );
-    io.emit('SYNC_STATE', state);
+  socket.on('REACTIVATE_CLIENT', async (clientId) => {
+    if (useDB) {
+      await ClientModel.findOneAndUpdate(
+        { id: clientId },
+        { status: 'waiting', snoozeStartTime: undefined, checkInTime: 0 }
+      );
+    } else {
+      state.clients = state.clients.map(c => 
+        c.id === clientId ? { ...c, status: 'waiting', snoozeStartTime: undefined, checkInTime: 0 } : c
+      );
+    }
+    await syncStateWithDB();
   });
 
-  socket.on('UPDATE_SETTINGS', (newSettings) => {
-    state.settings = { ...state.settings, ...newSettings };
-    saveSettings();
-    io.emit('SYNC_STATE', state);
+  socket.on('UPDATE_SETTINGS', async (newSettings) => {
+    await saveSettings(newSettings);
+    await syncStateWithDB();
   });
 
-  socket.on('UPDATE_GROUP_SIZE', ({ clientId, newSize }) => {
-    state.clients = state.clients.map(c => {
-      if (c.id === clientId) {
-        // Restriction: Can only reduce size, not increase
-        if (newSize < c.remainingSize && newSize >= 1) {
-          return { ...c, remainingSize: newSize, groupSize: newSize };
-        }
+  socket.on('UPDATE_GROUP_SIZE', async ({ clientId, newSize }) => {
+    const client = state.clients.find(c => c.id === clientId);
+    if (client && newSize < client.remainingSize && newSize >= 1) {
+      if (useDB) {
+        await ClientModel.findOneAndUpdate({ id: clientId }, { remainingSize: newSize, groupSize: newSize });
+      } else {
+        state.clients = state.clients.map(c => 
+          c.id === clientId ? { ...c, remainingSize: newSize, groupSize: newSize } : c
+        );
       }
-      return c;
-    });
-    io.emit('SYNC_STATE', state);
+      await syncStateWithDB();
+    }
   });
 
   // Dynamic Barber Management
@@ -423,22 +545,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('UPDATE_CLIENT_TIME_SLOT', ({ clientId, newTime, barberId }) => {
-    state.clients = state.clients.map(c => {
-      if (c.id === clientId) {
-        // Apply Sovereign Snapping
-        const finalBarberId = barberId || c.assignedBarber || c.barberPreference;
-        const snappedTime = getSnappedTime(clientId, finalBarberId, newTime, state.settings, state.clients);
+  socket.on('UPDATE_CLIENT_TIME_SLOT', async ({ clientId, newTime, barberId }) => {
+    const client = state.clients.find(c => c.id === clientId);
+    if (!client) return;
 
-        const updates = {
-          reservationTime: snappedTime,
-          ...(barberId ? { barberPreference: barberId, assignedBarber: null } : {})
-        };
-        return { ...c, ...updates };
-      }
-      return c;
-    });
-    io.emit('SYNC_STATE', state);
+    const finalBarberId = barberId || client.assignedBarber || client.barberPreference;
+    const snappedTime = getSnappedTime(clientId, finalBarberId, newTime, state.settings, state.clients);
+
+    const updates = {
+      reservationTime: snappedTime,
+      ...(barberId ? { barberPreference: barberId, assignedBarber: null } : {})
+    };
+    if (useDB) {
+      await ClientModel.findOneAndUpdate({ id: clientId }, updates);
+    } else {
+      state.clients = state.clients.map(c => c.id === clientId ? { ...c, ...updates } : c);
+    }
+    await syncStateWithDB();
   });
 
   socket.on('REMOVE_BARBER', (barberId) => {
@@ -451,13 +574,13 @@ io.on('connection', (socket) => {
     io.emit('SYNC_STATE', state);
   });
 
-  socket.on('RESET', () => {
-    state = { clients: [], barbers: DEFAULT_BARBERS, settings: DEFAULT_SETTINGS };
-    io.emit('SYNC_STATE', state);
+  socket.on('RESET', async () => {
+    await ClientModel.deleteMany({});
+    await Setting.findOneAndUpdate({ key: 'global' }, DEFAULT_SETTINGS, { upsert: true });
+    await syncStateWithDB();
   });
 });
 
-const PORT = 3001;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
 });

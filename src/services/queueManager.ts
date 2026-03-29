@@ -1,8 +1,8 @@
 import type { BarberId, QueueState } from '../types';
 import { io, Socket } from 'socket.io-client';
 
-// Use current hostname (works for localhost AND network IP)
-const SERVER_URL = `http://${window.location.hostname}:3001`;
+// PROD SYNC: Default to same-origin for Cloud Run portability
+const socket = io();
 
 export class QueueManager {
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -24,7 +24,7 @@ export class QueueManager {
   private listeners: (() => void)[] = [];
 
   constructor() {
-    this.socket = io(SERVER_URL);
+    this.socket = socket;
 
     this.socket.on('connect', () => {
       console.log('Connected to Queue Server');

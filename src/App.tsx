@@ -6,14 +6,12 @@ const CustomerTicket = lazy(() => import('./pages/CustomerTicket').then(module =
 const BarberDashboard = lazy(() => import('./pages/BarberDashboard').then(module => ({ default: module.BarberDashboard })));
 const ShopDisplay = lazy(() => import('./pages/ShopDisplay').then(module => ({ default: module.ShopDisplay })));
 const RemotePortal_Mobile = lazy(() => import('./pages/RemotePortal_Mobile').then(module => ({ default: module.RemotePortal_Mobile })));
+const QRJoin = lazy(() => import('./pages/QRJoin').then(module => ({ default: module.QRJoin })));
 
 function App() {
   // Global UAT Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Trigger: "UAT time warp" -> strictly speaking user said "keyword", but mapped to Ctrl+Shift+U in plan/previous context
-      // User prompt: "Global Listener for the keyword: 'UAT time warp'" -> could be typing it?
-      // "Ctrl+Shift+U" is safer/cleaner. Let's stick to the shortcut implemented in RemotePortal.
       if (e.ctrlKey && e.shiftKey && e.key === 'U') {
         simulationService.start();
       }
@@ -22,11 +20,10 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop' | 'remote'>('landing');
+  const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop' | 'book' | 'join'>('landing');
   const [ticketId, setTicketId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Handling both Path (/shop) and Hash (#shop) routing
     const checkRoute = () => {
       const hash = window.location.hash;
       const path = window.location.pathname;
@@ -35,8 +32,10 @@ function App() {
         setRoute('dashboard');
       } else if (path === '/shop' || hash === '#shop') {
         setRoute('shop');
-      } else if (path === '/remote' || hash === '#remote' || path === '/qr' || hash === '#qr') {
-        setRoute('remote');
+      } else if (path === '/join' || hash === '#join' || path === '/qr' || hash === '#qr') {
+        setRoute('join');
+      } else if (path === '/book' || hash === '#remote' || hash === '#book') {
+        setRoute('book');
       } else if (ticketId) {
         setRoute('ticket');
       } else {
@@ -69,7 +68,7 @@ function App() {
   // Restore session
   useEffect(() => {
     const saved = localStorage.getItem('barberq_my_ticket');
-    if (saved && route !== 'dashboard' && route !== 'shop' && route !== 'remote') {
+    if (saved && route !== 'dashboard' && route !== 'shop' && route !== 'book' && route !== 'join') {
       setTicketId(saved);
       setRoute('ticket');
     }
@@ -79,7 +78,8 @@ function App() {
     <Suspense fallback={<div style={{ padding: '2rem', color: '#888' }}>Loading...</div>}>
       {route === 'shop' && <ShopDisplay />}
       {route === 'dashboard' && <BarberDashboard />}
-      {route === 'remote' && <RemotePortal_Mobile />}
+      {route === 'book' && <RemotePortal_Mobile />}
+      {route === 'join' && <QRJoin />}
       {route === 'ticket' && ticketId && <CustomerTicket clientId={ticketId} onClear={handleClear} />}
       {route === 'landing' && <CustomerLanding onJoin={handleJoin} />}
     </Suspense>

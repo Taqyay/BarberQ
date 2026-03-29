@@ -44,7 +44,7 @@ export function CustomerLanding({ onJoin }: Props) {
 
     useEffect(() => {
         // Intent Tracking: Track that someone scanned the QR / opened the landing page
-        const socket = io('http://localhost:3001');
+        const socket = io();
         socket.emit('TRACK_SCAN');
         return () => {
             socket.disconnect();

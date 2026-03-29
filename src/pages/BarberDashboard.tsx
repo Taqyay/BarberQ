@@ -197,7 +197,7 @@ export function BarberDashboard() {
                 {/* Header */}
                 <header className="h-16 bg-background/90 backdrop-blur-md border-b border-border flex items-center px-6 justify-between z-20 shrink-0">
                     <div className="flex items-center gap-4">
-                        <h1 className="text-lg font-bold tracking-tight text-text-main">Shop Operations</h1>
+                        <h1 className="text-lg font-bold tracking-tight text-text-main">Staff Hub</h1>
                     </div>
 
                     <div className="flex items-center gap-3">

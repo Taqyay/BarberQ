@@ -84,6 +84,15 @@ const ClientSchema = new mongoose.Schema({
 const Setting = mongoose.model('Setting', SettingSchema);
 const ClientModel = mongoose.model('Client', ClientSchema);
 
+const BarberSchema = new mongoose.Schema({
+  id: String,
+  name: String,
+  isAvailable: Boolean,
+  waitDurationMinutes: Number,
+  orderIndex: Number
+});
+const BarberModel = mongoose.model('Barber', BarberSchema);
+
 // --- Health Check ---
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -161,6 +170,15 @@ const syncStateWithDB = async () => {
       }
       state.settings = dbSettings.toObject();
 
+      // Sync Barbers
+      const dbBarbers = await BarberModel.find({}).sort({ orderIndex: 1 });
+      if (dbBarbers.length === 0) {
+        await BarberModel.insertMany(DEFAULT_BARBERS.map((b, i) => ({ ...b, orderIndex: i })));
+        state.barbers = DEFAULT_BARBERS;
+      } else {
+        state.barbers = dbBarbers.map(b => ({ ...b.toObject(), queue: [] }));
+      }
+
       // Sync Active Clients
       const activeClients = await ClientModel.find({ 
         status: { $in: ['waiting', 'in_chair', 'snoozed'] } 
@@ -176,9 +194,10 @@ const syncStateWithDB = async () => {
 
 const saveSettings = async (newSettings) => {
   try {
-    state.settings = { ...state.settings, ...newSettings };
+    const { _id, __v, key, ...cleanSettings } = newSettings;
+    state.settings = { ...state.settings, ...cleanSettings };
     if (useDB) {
-      await Setting.findOneAndUpdate({ key: 'global' }, newSettings, { upsert: true });
+      await Setting.findOneAndUpdate({ key: 'global' }, { $set: cleanSettings }, { upsert: true });
     } else {
       fs.writeFileSync(SETTINGS_FILE, JSON.stringify(state.settings, null, 2));
     }
@@ -376,31 +395,31 @@ io.on('connection', (socket) => {
   console.log('Client connected', socket.id);
   socket.emit('SYNC_STATE', state);
 
-  socket.on('REORDER_BARBERS', (newOrderIds) => {
+  socket.on('REORDER_BARBERS', async (newOrderIds) => {
     if (!Array.isArray(newOrderIds)) return;
 
-    // Create Map for fast lookup
-    const barberMap = new Map();
-    state.barbers.forEach(b => barberMap.set(b.id, b));
-
-    const newBarbersList = [];
-
-    newOrderIds.forEach(id => {
-      if (barberMap.has(id)) {
-        newBarbersList.push(barberMap.get(id));
-        barberMap.delete(id);
+    if (useDB) {
+      for (let i = 0; i < newOrderIds.length; i++) {
+        await BarberModel.findOneAndUpdate({ id: newOrderIds[i] }, { $set: { orderIndex: i } });
       }
-    });
-
-    // Append remaining (e.g. newly added ones not in the reorder list)
-    state.barbers.forEach(b => {
-      if (barberMap.has(b.id)) {
-        newBarbersList.push(b);
-      }
-    });
-
-    state.barbers = newBarbersList;
-    io.emit('SYNC_STATE', state);
+    } else {
+      const barberMap = new Map();
+      state.barbers.forEach(b => barberMap.set(b.id, b));
+      const newBarbersList = [];
+      newOrderIds.forEach(id => {
+        if (barberMap.has(id)) {
+          newBarbersList.push(barberMap.get(id));
+          barberMap.delete(id);
+        }
+      });
+      state.barbers.forEach(b => {
+        if (barberMap.has(b.id)) {
+          newBarbersList.push(b);
+        }
+      });
+      state.barbers = newBarbersList;
+    }
+    await syncStateWithDB();
   });
 
   socket.on('JOIN_QUEUE', async (payload) => {
@@ -462,11 +481,15 @@ io.on('connection', (socket) => {
     await syncStateWithDB();
   });
 
-  socket.on('TOGGLE_SHIFT', ({ barberId, isAvailable }) => {
-    state.barbers = state.barbers.map(b =>
-      b.id === barberId ? { ...b, isAvailable } : b
-    );
-    io.emit('SYNC_STATE', state);
+  socket.on('TOGGLE_SHIFT', async ({ barberId, isAvailable }) => {
+    if (useDB) {
+      await BarberModel.findOneAndUpdate({ id: barberId }, { $set: { isAvailable } });
+    } else {
+      state.barbers = state.barbers.map(b =>
+        b.id === barberId ? { ...b, isAvailable } : b
+      );
+    }
+    await syncStateWithDB();
   });
 
   socket.on('CALL_NEXT', async (barberId) => {
@@ -540,17 +563,22 @@ io.on('connection', (socket) => {
   });
 
   // Dynamic Barber Management
-  socket.on('ADD_BARBER', ({ name }) => {
+  socket.on('ADD_BARBER', async ({ name }) => {
     const id = name; // Use name as ID for simplicity in this demo, or randomUUID()
     if (!state.barbers.find(b => b.id === id)) {
-      state.barbers.push({
+      const newBarber = {
         id,
         name,
         isAvailable: true,
         waitDurationMinutes: state.settings.averageCutTimeMinutes || 20,
-        queue: []
-      });
-      io.emit('SYNC_STATE', state);
+        orderIndex: state.barbers.length
+      };
+      if (useDB) {
+        await BarberModel.create(newBarber);
+      } else {
+        state.barbers.push({ ...newBarber, queue: [] });
+      }
+      await syncStateWithDB();
     }
   });
 
@@ -573,14 +601,13 @@ io.on('connection', (socket) => {
     await syncStateWithDB();
   });
 
-  socket.on('REMOVE_BARBER', (barberId) => {
-    state.barbers = state.barbers.filter(b => b.id !== barberId);
-    // Also reset any clients assigned to this barber?
-    // Or move them to 'next_available'?
-    // For now, let's keep it simple: unassign them so they go back to waiting pool (if distinct preference)
-    // If preference was THIS barber, they are now stuck.
-    // Ideally, we shouldn't delete active barbers, but for now just remove.
-    io.emit('SYNC_STATE', state);
+  socket.on('REMOVE_BARBER', async (barberId) => {
+    if (useDB) {
+      await BarberModel.findOneAndDelete({ id: barberId });
+    } else {
+      state.barbers = state.barbers.filter(b => b.id !== barberId);
+    }
+    await syncStateWithDB();
   });
 
   socket.on('RESET', async () => {

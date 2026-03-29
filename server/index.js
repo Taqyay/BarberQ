@@ -12,6 +12,15 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Enforce MONGO_URI in production
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI && NODE_ENV === 'production') {
+  console.error('[SOVEREIGN] FATAL: MONGO_URI is not set in production.');
+  process.exit(1);
+}
+const DB_URI = MONGO_URI || 'mongodb://localhost:27017/barberq';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -19,12 +28,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3001',
   'http://localhost:3002',
   'https://barberq-491721.a.run.app',
-  'https://barberq-491721.ue.r.appspot.com'
+  'https://barberq-v1-651913574031.europe-west1.run.app'
 ];
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/barberq';
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -83,20 +91,18 @@ app.get('/health', (req, res) => {
   });
 });
 
-// --- Static Assets (Production) ---
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
-
-// --- SPA Catch-all Routing ---
-// Must be AFTER API and Health routes
-app.get(/^(?!\/api|\/health).*$/, (req, res) => {
-  const indexPath = path.join(distPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send('Frontend not built. Run npm run build.');
-  }
-});
+// Serve Static Assets in Production
+if (NODE_ENV === 'production') {
+  const distPath = path.resolve(process.cwd(), 'dist');
+  console.log(`[SOVEREIGN] Serving static files from: ${distPath}`);
+  
+  app.use(express.static(distPath));
+  
+  // SPA Catch-all
+  app.get(/^(?!\/api|\/health).*$/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -175,29 +181,23 @@ const saveSettings = async (newSettings) => {
 
 let useDB = false;
 
-// Connect to MongoDB with timeout
-const connectDB = async () => {
-  try {
-    console.log(`[SOVEREIGN] Connecting to ${MONGO_URI}...`);
-    await mongoose.connect(MONGO_URI, { 
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000
-    });
-    console.log('[SOVEREIGN] Connected to MongoDB Atlas.');
+// --- Database Connection ---
+mongoose.connect(DB_URI)
+  .then(() => {
+    console.log(`[SOVEREIGN] Connected to ${DB_URI.includes('cluster') ? 'MongoDB Atlas' : 'Local MongoDB'}`);
     useDB = true;
-    await syncStateWithDB();
-  } catch (err) {
-    console.error('[SOVEREIGN] MongoDB Connection Failed. Falling back to Local Persistence.');
-    useDB = false;
+    syncStateWithDB();
+  })
+  .catch(err => {
+    console.error('[SOVEREIGN] MongoDB Connection Failed.', err);
+    if (NODE_ENV === 'production') process.exit(1);
+    
     // Fallback: Read from settings.json if exists
     if (fs.existsSync(SETTINGS_FILE)) {
       const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
       state.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
     }
-  }
-};
-
-connectDB();
+  });
 
 // --- Sovereign MVS Snapping Logic ---
 const getSnappedTime = (clientId, barberId, requestedTime, settings, allClients) => {

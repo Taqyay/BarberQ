@@ -4,5 +4,5 @@
 $env:HOME = $env:USERPROFILE
 Write-Host "Setting `$env:HOME to $env:USERPROFILE..." -ForegroundColor Cyan
 
-Write-Host "Running dashboard verification..." -ForegroundColor Yellow
-node scripts/verify-dashboard.js
+Write-Host "Running comprehensive verification..." -ForegroundColor Yellow
+node scripts/uat-comprehensive.js

@@ -11,7 +11,7 @@ socket.on('connect', async () => {
     const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
     // 1. Reset State
-    socket.emit('RESET');
+    socket.emit('RESET', { secret: 'dev-secret' });
     await delay(200);
 
     // 2. Test MVS Reactivity

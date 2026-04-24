@@ -237,7 +237,7 @@ export function BarberDashboard() {
                     {activeTab === 'calendar' && (
                         <div className="h-full p-4">
                             <Card className="h-full flex flex-col bg-surface/50">
-                                <CalendarView key={JSON.stringify(settings)} onAddClient={handleCalendarAdd} />
+                                <CalendarView onAddClient={handleCalendarAdd} />
                             </Card>
                         </div>
                     )}

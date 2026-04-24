@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { simulationService } from './services/simulation';
+import { useRoute } from './hooks/useRoute';
 
 const CustomerLanding = lazy(() => import('./pages/CustomerLanding').then(module => ({ default: module.CustomerLanding })));
 const CustomerTicket = lazy(() => import('./pages/CustomerTicket').then(module => ({ default: module.CustomerTicket })));
@@ -20,38 +21,8 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const [route, setRoute] = useState<'landing' | 'ticket' | 'dashboard' | 'shop' | 'book' | 'join'>('landing');
   const [ticketId, setTicketId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const checkRoute = () => {
-      const hash = window.location.hash;
-      const path = window.location.pathname;
-
-      if (path === '/dashboard' || hash === '#dashboard' || hash === '#staff') {
-        setRoute('dashboard');
-      } else if (path === '/shop' || hash === '#shop') {
-        setRoute('shop');
-      } else if (path === '/join' || hash === '#join' || path === '/qr' || hash === '#qr') {
-        setRoute('join');
-      } else if (path === '/book' || hash === '#remote' || hash === '#book') {
-        setRoute('book');
-      } else if (ticketId) {
-        setRoute('ticket');
-      } else {
-        setRoute('landing');
-      }
-    };
-
-    window.addEventListener('hashchange', checkRoute);
-    window.addEventListener('popstate', checkRoute); // Handle browser back/forward
-    checkRoute();
-
-    return () => {
-      window.removeEventListener('hashchange', checkRoute);
-      window.removeEventListener('popstate', checkRoute);
-    };
-  }, [ticketId]);
+  const { route, setRoute } = useRoute(ticketId);
 
   const handleJoin = (id: string) => {
     setTicketId(id);

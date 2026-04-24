@@ -130,8 +130,8 @@ export class QueueManager {
     this.socket.emit('UPDATE_CLIENT_TIME_SLOT', { clientId, newTime, barberId });
   }
 
-  reset() {
-    this.socket.emit('RESET');
+  reset(secret: string = 'dev-secret') {
+    this.socket.emit('RESET', { secret });
   }
 }
 

@@ -15,6 +15,7 @@ const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 const app = express();
 const PORT = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+let useDB = false;
 
 // Enforce Database Presence in Production
 const MONGO_URI = process.env.MONGO_URI;
@@ -207,8 +208,6 @@ const saveSettings = async (newSettings) => {
   }
 };
 
-let useDB = false;
-
 // --- Database Connection ---
 mongoose.connect(DB_URI)
   .then(() => {
@@ -248,28 +247,31 @@ const getSnappedTime = (clientId, barberId, requestedTime, settings, allClients)
     c.status !== 'finished'
   ).sort((a, b) => a.reservationTime - b.reservationTime);
 
-  console.log(`[SOVEREIGN] getSnappedTime for ${clientId}: Found ${neighbors.length} neighbors for ${barberId}.`);
-  neighbors.forEach(n => console.log(` - Neighbor ${n.id}: ${new Date(n.reservationTime).toLocaleTimeString()}`));
-
   let snappedTime = requestedTime;
 
   // Tetris Gap Checking: Ensure no gaps smaller than MVS
-  for (const n of neighbors) {
-    const nStart = n.reservationTime;
-    const nEnd = nStart + cutMs;
+  let changed;
+  do {
+    changed = false;
+    for (const n of neighbors) {
+      const nStart = n.reservationTime;
+      const nEnd = nStart + cutMs;
 
-    // Check gap before neighbor
-    const gapBefore = nStart - (snappedTime + cutMs);
-    if (gapBefore > 0 && gapBefore < mvsMs) {
-      snappedTime = nStart - cutMs;
-    }
+      // Check gap before neighbor
+      const gapBefore = nStart - (snappedTime + cutMs);
+      if (gapBefore > 0 && gapBefore < mvsMs) {
+        snappedTime = nStart - cutMs;
+        changed = true;
+      }
 
-    // Check gap after neighbor
-    const gapAfter = snappedTime - nEnd;
-    if (gapAfter > 0 && gapAfter < mvsMs) {
-      snappedTime = nEnd;
+      // Check gap after neighbor
+      const gapAfter = snappedTime - nEnd;
+      if (gapAfter > 0 && gapAfter < mvsMs) {
+        snappedTime = nEnd;
+        changed = true;
+      }
     }
-  }
+  } while (changed);
 
   return snappedTime;
 };
@@ -564,8 +566,8 @@ io.on('connection', (socket) => {
 
   // Dynamic Barber Management
   socket.on('ADD_BARBER', async ({ name }) => {
-    const id = name; // Use name as ID for simplicity in this demo, or randomUUID()
-    if (!state.barbers.find(b => b.id === id)) {
+    const id = randomUUID();
+    if (!state.barbers.find(b => b.name === name)) {
       const newBarber = {
         id,
         name,
@@ -610,9 +612,19 @@ io.on('connection', (socket) => {
     await syncStateWithDB();
   });
 
-  socket.on('RESET', async () => {
-    await ClientModel.deleteMany({});
-    await Setting.findOneAndUpdate({ key: 'global' }, DEFAULT_SETTINGS, { upsert: true });
+  socket.on('RESET', async ({ secret }) => {
+    const ADMIN_SECRET = process.env.ADMIN_SECRET || 'dev-secret';
+    if (secret !== ADMIN_SECRET) {
+      console.error('[SOVEREIGN] Unauthorized RESET attempt.');
+      return;
+    }
+    if (useDB) {
+      await ClientModel.deleteMany({});
+      await Setting.findOneAndUpdate({ key: 'global' }, DEFAULT_SETTINGS, { upsert: true });
+    } else {
+      state.clients = [];
+      state.settings = DEFAULT_SETTINGS;
+    }
     await syncStateWithDB();
   });
 });

@@ -49,7 +49,7 @@ socket.on('connect', async () => {
             }
 
             // Cleanup
-            socket.emit('RESET');
+            socket.emit('RESET', { secret: 'dev-secret' });
             process.exit(0);
         }
     });

@@ -17,8 +17,12 @@ const AVATAR_COLORS = [
 
 // Generate consistent color based on name
 function getAvatarColor(name: string): string {
-    const charCode = name.charCodeAt(0) || 0;
-    return AVATAR_COLORS[charCode % AVATAR_COLORS.length];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % AVATAR_COLORS.length;
+    return AVATAR_COLORS[index];
 }
 
 // Get initials from name

@@ -11,7 +11,7 @@ socket.on('connect', async () => {
     const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
     // 1. Reset State
-    socket.emit('RESET');
+    socket.emit('RESET', { secret: 'dev-secret' });
     await delay(200);
 
     // 2. MVS Persistence Test
@@ -55,15 +55,20 @@ socket.on('connect', async () => {
         const isOneTapOk = leaver?.status === 'finished' && joiner !== undefined;
         const isPersistenceOk = mvsVal === 25;
 
-        if (isStealthOk && isOneTapOk && isPersistenceOk) {
-            console.log('\n[PASS] Stealth Filter Simulation');
-            console.log('[PASS] "One-Tap" Race Condition');
-            console.log('[PASS] Session Persistence (MVS)');
-            console.log('\n--- UAT Protocol Complete: ALL PASS ---');
-            setTimeout(() => process.exit(0), 100);
-        } else {
-            // If we get here and all conditions were met previously, we're good.
-            // If not, we wait for next sync.
+        if (joiner !== undefined) {
+            if (isStealthOk && isOneTapOk && isPersistenceOk) {
+                console.log('\n[PASS] Stealth Filter Simulation');
+                console.log('[PASS] "One-Tap" Race Condition');
+                console.log('[PASS] Session Persistence (MVS)');
+                console.log('\n--- UAT Protocol Complete: ALL PASS ---');
+                setTimeout(() => process.exit(0), 100);
+            } else {
+                console.log('\n[FAIL] UAT Protocol Failed.');
+                if (!isStealthOk) console.error(' -> Stealth Filter Failed');
+                if (!isOneTapOk) console.error(' -> One-Tap Race Condition Failed');
+                if (!isPersistenceOk) console.error(` -> Persistence Failed (mvsVal = ${mvsVal})`);
+                setTimeout(() => process.exit(1), 100);
+            }
         }
     });
 });

@@ -30,5 +30,12 @@ export const getEffectiveTime = (c: Client): number => {
  * Sorts by Effective Time ASC (Earliest first).
  */
 export const sortByEffectiveTime = (a: Client, b: Client): number => {
+    const isLeapfrogA = a.checkInTime === 0;
+    const isLeapfrogB = b.checkInTime === 0;
+    
+    if (isLeapfrogA && !isLeapfrogB) return -1;
+    if (!isLeapfrogA && isLeapfrogB) return 1;
+    if (isLeapfrogA && isLeapfrogB) return (a.originalCheckInTime || 0) - (b.originalCheckInTime || 0);
+
     return getEffectiveTime(a) - getEffectiveTime(b);
 };

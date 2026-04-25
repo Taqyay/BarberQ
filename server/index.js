@@ -35,7 +35,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3002',
   'https://barberq-491721.a.run.app',
   'https://barberq-v1-651913574031.europe-west1.run.app',
-  'https://barberq-v1-d57ut6nj3q-ew.a.run.app'
+  'https://barberq-v1-d57ut6nj3q-ew.a.run.app',
+  'https://barberq-v2-sovereign-651913574031.europe-west1.run.app'
 ];
 
 app.use(cors({
@@ -114,7 +115,9 @@ if (NODE_ENV === 'production') {
     process.exit(1);
   }
   
-  console.log(`[SOVEREIGN] Serving static assets from: ${distPath}`);
+  const files = fs.readdirSync(distPath);
+  console.log(`[SOVEREIGN] Serving static assets from: ${distPath}. Files: ${files.join(', ')}`);
+  
   app.use(express.static(distPath));
   
   // SPA Catch-all

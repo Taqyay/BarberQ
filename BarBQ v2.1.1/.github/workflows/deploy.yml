@@ -1,0 +1,58 @@
+name: "BarberQ: Production Launch"
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: "barberq-491721"
+  REGION: "europe-west1"
+  SERVICE_NAME: "barberq-v1"
+  IMAGE_NAME: "barberq"
+
+jobs:
+  deploy:
+    name: "Build and Deploy to Cloud Run"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout Code"
+        uses: "actions/checkout@v4"
+
+      - name: "Authenticate with Google Cloud"
+        uses: "google-github-actions/auth@v2"
+        with:
+          credentials_json: "${{ secrets.GCP_SA_KEY }}"
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v2"
+
+      - name: "Configure Docker for GCP"
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+      - name: "Build & Push Docker Image"
+        run: |
+          # Ensure the Artifact Registry repository exists or create it
+          gcloud artifacts repositories create ${IMAGE_NAME}-repo \
+            --repository-format=docker \
+            --location=${REGION} \
+            --description="BarberQ Production Images" || true
+
+          IMAGE_TAG="${REGION}-docker.pkg.dev/${PROJECT_ID}/${IMAGE_NAME}-repo/${IMAGE_NAME}:${{ github.sha }}"
+          docker build -t ${IMAGE_TAG} .
+          docker push ${IMAGE_TAG}
+
+      - name: "Deploy to Cloud Run"
+        run: |
+          IMAGE_TAG="${REGION}-docker.pkg.dev/${PROJECT_ID}/${IMAGE_NAME}-repo/${IMAGE_NAME}:${{ github.sha }}"
+          
+          gcloud run deploy ${SERVICE_NAME} \
+            --image ${IMAGE_TAG} \
+            --region ${REGION} \
+            --platform managed \
+            --allow-unauthenticated \
+            --session-affinity \
+            --port 8080 \
+            --set-env-vars "MONGO_URI=${{ secrets.MONGO_URI }},NODE_ENV=production,CORS_ORIGIN=https://${SERVICE_NAME}-491721.${REGION}.a.run.app"

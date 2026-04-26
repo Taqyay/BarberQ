@@ -1,0 +1,19 @@
+BarberQ
+
+Premium Cuts. Zero Wait.
+
+GROUP SIZE
+1
+2
+3
+4
+5
+YOUR FIRST NAME
+Adam
+0m wait
+Ibrahim
+0m wait
+Vishal
+0m wait
+Next Available
+0m wait

@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+/* Theme Variables - Stitch Light (Default) */
+:root[data-theme="golden-sand"],
+:root {
+  /* Stitch Light Theme */
+  --color-primary: #C5A059;
+  /* Antique Gold */
+  --color-surface: #FFFFFF;
+  /* Pure white cards */
+  --color-surfaceHighlight: #F8F7F4;
+  /* Cream highlight */
+  --color-background: #F8F7F4;
+  /* Cream background */
+  --color-border: #E8E6E1;
+  /* Subtle borders */
+
+  --color-text-main: #1F1F1F;
+  /* Near black */
+  --color-text-secondary: #6B6B6B;
+  /* Medium gray */
+  --color-text-tertiary: #9E9E9E;
+  /* Light gray */
+
+  --font-heading: 'Manrope', sans-serif;
+  --font-body: 'Manrope', sans-serif;
+
+  /* Shadows - soft and subtle */
+  --shadow-s: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-m: 0 2px 8px rgba(0, 0, 0, 0.10);
+  --shadow-l: 0 4px 12px rgba(0, 0, 0, 0.12);
+
+  /* Large Border Radius */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+}
+
+html,
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease;
+}
+
+:root[data-theme="sovereign-cobalt"] {
+  --color-primary: #1B22B1;
+  --color-surface: #0A0C10;
+  --color-surfaceHighlight: #161B22;
+  --color-background: #010409;
+  --color-border: #30363D;
+
+  --color-text-main: #F0F6FC;
+  --color-text-secondary: #8B949E;
+  --color-text-tertiary: #484F58;
+
+  --font-heading: 'Archivo', sans-serif;
+  --font-body: 'Archivo', sans-serif;
+}
+
+:root[data-theme="classic-slate"] {
+  --color-primary: #41484a;
+  --color-surface: #f1f3f4;
+  --color-surfaceHighlight: #e8eaed;
+  --color-background: #ffffff;
+  --color-border: #dadce0;
+
+  --color-text-main: #202124;
+  --color-text-secondary: #5f6368;
+  --color-text-tertiary: #9aa0a6;
+
+  --font-heading: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Utilities */
+.container {
+  max-width: 480px;
+  /* Mobile first logic */
+  margin: 0 auto;
+  padding: 1rem;
+  min-height: 100vh;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%);
+  color: var(--color-background);
+  font-weight: 700;
+  width: 100%;
+  padding: 1.5rem;
+  border-radius: 20px;
+  box-shadow: var(--shadow-l);
+  font-size: 1.25rem;
+  transition: transform 0.2s ease, filter 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-main);
+  border: 1px solid var(--color-border);
+  padding: 1rem;
+  border-radius: 16px;
+  width: 100%;
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  height: 100vh;
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.barber-col {
+  background: #1a1d24;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

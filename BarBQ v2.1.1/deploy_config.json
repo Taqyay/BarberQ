@@ -1,0 +1,13 @@
+{
+  "service_name": "barberq-v2-sovereign",
+  "project_id": "barberq-491721",
+  "region": "europe-west1",
+  "deployed_url": "https://barberq-v2-sovereign-651913574031.europe-west1.run.app",
+  "version": "2.1.published",
+  "deployment_date": "2026-04-25",
+  "env_vars": {
+    "NODE_ENV": "production",
+    "MONGO_URI": "mongodb+srv://aquddusicvo_db_user:VFteR8RCc6wRnUSz@barbq.nhpwyly.mongodb.net/?appName=BarBQ",
+    "ADMIN_SECRET": "sovereign-admin-2026"
+  }
+}

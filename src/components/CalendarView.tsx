@@ -18,6 +18,7 @@ type CalendarEvent = {
 
 interface CalendarViewProps {
     onAddClient: (barberId: string, time: Date) => void;
+    selectedBarberId?: string | 'all';
 }
 
 // --- Helpers ---
@@ -33,17 +34,19 @@ const getTopOffset = (timestamp: number, startHour: number) => {
     return Math.max(0, totalMinutes * PIXELS_PER_MINUTE);
 };
 
-const getTimeFromOffset = (yOffset: number, startHour: number) => {
+const getTimeFromOffset = (yOffset: number, startHour: number, baseDate: Date = new Date()) => {
     const totalMinutes = (yOffset / PIXELS_PER_MINUTE) + (startHour * 60);
-    const date = new Date();
+    const date = new Date(baseDate);
     date.setHours(0, 0, 0, 0);
     date.setMinutes(totalMinutes);
     return date.getTime();
 };
 
-export function CalendarView({ onAddClient }: CalendarViewProps) {
+export function CalendarView({ onAddClient, selectedBarberId = 'all' }: CalendarViewProps) {
     const { clients, barbers, settings } = useQueue();
     const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+    const [viewDate, setViewDate] = useState(new Date());
+    const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
     const startHour = settings?.firstCutTime ?? 9;
     const endHour = settings?.lastCutTime ?? 18;
@@ -59,13 +62,33 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
 
         const now = Date.now();
         barbers.forEach(b => {
-            const dayStart = new Date();
+            const dayStart = new Date(viewDate);
             dayStart.setHours(startHour, 0, 0, 0);
-            barberFinishTimes[b.id] = Math.max(now, dayStart.getTime());
+            
+            const isToday = viewDate.toDateString() === new Date().toDateString();
+            barberFinishTimes[b.id] = isToday ? Math.max(now, dayStart.getTime()) : dayStart.getTime();
         });
 
+        // Filter clients based on viewMode and viewDate
+        let filteredClients = clients;
+        if (viewMode === 'day') {
+            filteredClients = clients.filter(c => {
+                const t = new Date(c.reservationTime || c.checkInTime);
+                return t.toDateString() === viewDate.toDateString();
+            });
+        } else {
+            const startOfWeek = new Date(viewDate);
+            startOfWeek.setDate(viewDate.getDate() - viewDate.getDay());
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            filteredClients = clients.filter(c => {
+                const t = new Date(c.reservationTime || c.checkInTime);
+                return t >= startOfWeek && t <= endOfWeek;
+            });
+        }
+
         // Sort: Time-based (Reservation or Check-in updates)
-        const sortedClients = [...clients].sort((a, b) => {
+        const sortedClients = [...filteredClients].sort((a, b) => {
             const timeA = a.reservationTime || a.checkInTime;
             const timeB = b.reservationTime || b.checkInTime;
             return timeA - timeB;
@@ -152,7 +175,7 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
         const dynamicEndHour = Math.max(endHour, maxEventHour);
 
         return { evts, dynamicEndHour };
-    }, [clients, barbers, avgCutTime, startHour, endHour]);
+    }, [clients, barbers, avgCutTime, startHour, endHour, viewDate, viewMode]);
 
     const events = useMemoResult.evts;
     const currentEndHour = useMemoResult.dynamicEndHour;
@@ -174,11 +197,48 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
         const originalY = getTopOffset(evt.startTime, startHour);
         const newY = originalY + delta.y;
         const snappedY = Math.round(newY / 30) * 30;
-        const newTime = getTimeFromOffset(snappedY, startHour);
-        const newBarberId = over.id;
+        
+        // Find which column it was dropped over to determine the date/barber
+        let targetDate = viewDate;
+        let newBarberId = over.id as string;
+        
+        if (viewMode === 'week') {
+            const dayOffset = parseInt(newBarberId.replace('week-', ''));
+            const startOfWeek = new Date(viewDate);
+            startOfWeek.setDate(viewDate.getDate() - viewDate.getDay());
+            targetDate = new Date(startOfWeek);
+            targetDate.setDate(startOfWeek.getDate() + dayOffset);
+            newBarberId = selectedBarberId === 'all' ? evt.barberId : selectedBarberId;
+        }
+
+        const newTime = getTimeFromOffset(snappedY, startHour, targetDate);
 
         queueManager.updateClientTimeSlot(evt.client.id, newTime, newBarberId);
     };
+
+    const columnsToRender = useMemo(() => {
+        if (viewMode === 'day') {
+            return barbers.filter(b => selectedBarberId === 'all' || b.id === selectedBarberId).map(b => ({
+                id: b.id,
+                label: b.name,
+                date: viewDate,
+                barberId: b.id
+            }));
+        } else {
+            const startOfWeek = new Date(viewDate);
+            startOfWeek.setDate(viewDate.getDate() - viewDate.getDay());
+            return Array.from({ length: 7 }).map((_, i) => {
+                const colDate = new Date(startOfWeek);
+                colDate.setDate(startOfWeek.getDate() + i);
+                return {
+                    id: `week-${i}`,
+                    label: colDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+                    date: colDate,
+                    barberId: selectedBarberId === 'all' ? 'next_available' : selectedBarberId
+                };
+            });
+        }
+    }, [viewMode, viewDate, barbers, selectedBarberId]);
 
     return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -187,11 +247,44 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
                 color: '#fff', borderRadius: '16px', border: '1px solid #333', overflow: 'hidden',
                 boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
             }}>
+                {/* Navigation Header */}
+                <div style={{ padding: '0.75rem 1rem', background: '#1a1d24', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button onClick={() => {
+                            const next = new Date(viewDate);
+                            next.setDate(next.getDate() - (viewMode === 'week' ? 7 : 1));
+                            setViewDate(next);
+                        }} style={{ padding: '0.5rem', background: '#333', borderRadius: '8px', cursor: 'pointer' }} className="hover:bg-primary transition-colors">
+                            <span className="material-icons text-sm">chevron_left</span>
+                        </button>
+                        
+                        <button onClick={() => setViewDate(new Date())} style={{ padding: '0.5rem 1rem', background: '#333', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }} className="hover:bg-primary hover:text-black transition-colors">
+                            Today
+                        </button>
+                        
+                        <button onClick={() => {
+                            const next = new Date(viewDate);
+                            next.setDate(next.getDate() + (viewMode === 'week' ? 7 : 1));
+                            setViewDate(next);
+                        }} style={{ padding: '0.5rem', background: '#333', borderRadius: '8px', cursor: 'pointer' }} className="hover:bg-primary transition-colors">
+                            <span className="material-icons text-sm">chevron_right</span>
+                        </button>
+                        
+                        <span style={{ marginLeft: '1rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                            {viewMode === 'week' ? 'Week of ' : ''}{viewDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', background: '#0f1115', padding: '4px', borderRadius: '10px' }}>
+                        <button onClick={() => setViewMode('day')} style={{ padding: '0.4rem 1rem', background: viewMode === 'day' ? 'var(--color-primary)' : 'transparent', color: viewMode === 'day' ? '#000' : '#888', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer' }}>Day</button>
+                        <button onClick={() => setViewMode('week')} style={{ padding: '0.4rem 1rem', background: viewMode === 'week' ? 'var(--color-primary)' : 'transparent', color: viewMode === 'week' ? '#000' : '#888', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer' }}>Week</button>
+                    </div>
+                </div>
+
                 <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#1a1d24' }}>
                     <div style={{ width: '60px', borderRight: '1px solid #333' }}></div>
-                    {barbers.map(b => (
-                        <div key={b.id} style={{ flex: 1, padding: '1rem', textAlign: 'center', fontWeight: 'bold', borderRight: '1px solid #333', color: '#ccc', fontFamily: 'serif', fontSize: '1.1rem' }}>
-                            {b.name}
+                    {columnsToRender.map(col => (
+                        <div key={col.id} style={{ flex: 1, padding: '1rem', textAlign: 'center', fontWeight: 'bold', borderRight: '1px solid #333', color: '#ccc', fontFamily: 'serif', fontSize: '1.1rem' }}>
+                            {col.label}
                         </div>
                     ))}
                 </div>
@@ -210,51 +303,57 @@ export function CalendarView({ onAddClient }: CalendarViewProps) {
                     ))}
 
                     <div style={{ position: 'relative', height: (currentEndHour - startHour) * 60 * PIXELS_PER_MINUTE + 'px', marginLeft: '60px', display: 'flex' }}>
-                        {barbers.map(b => (
-                            <DroppableColumn
-                                key={b.id}
-                                id={b.id}
-                                onClick={(e) => {
-                                    const offsetY = e.nativeEvent.offsetY;
-                                    const snappedY = Math.round(offsetY / 30) * 30;
-                                    const time = getTimeFromOffset(snappedY, startHour);
-                                    onAddClient(b.id, new Date(time));
-                                }}
-                            >
-                                {/* Render Soft-Lock Zones (Behind events) */}
-                                {events.filter(e => e.barberId === b.id && e.type === 'remote').map(evt => {
-                                    // Soft Lock: Dynamic buffer from settings
-                                    const bufferMins = settings?.remoteBufferMinutes || 30;
-                                    const bufferMs = bufferMins * 60000;
-                                    const lockStart = evt.startTime - bufferMs;
-                                    const top = getTopOffset(lockStart, startHour);
-                                    const height = (bufferMs / 60000) * PIXELS_PER_MINUTE;
+                        {columnsToRender.map(col => {
+                            const colEvents = viewMode === 'week' 
+                                ? events.filter(e => new Date(e.startTime).toDateString() === col.date.toDateString())
+                                : events.filter(e => e.barberId === col.barberId);
 
-                                    return (
-                                        <div key={`lock-${evt.id}`} style={{
-                                            position: 'absolute',
-                                            top: `${top}px`,
-                                            height: `${height}px`,
-                                            left: '4px', right: '4px',
-                                            background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(234, 179, 8, 0.05) 100%)',
-                                            borderTop: '1px dashed rgba(234, 179, 8, 0.5)',
-                                            borderRadius: '6px 6px 0 0',
-                                            zIndex: 5,
-                                            pointerEvents: 'none',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                        }}>
-                                            <span style={{ fontSize: '0.6rem', color: 'rgba(234, 179, 8, 0.8)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                                Soft Lock
-                                            </span>
-                                        </div>
-                                    );
-                                })}
+                            return (
+                                <DroppableColumn
+                                    key={col.id}
+                                    id={col.id}
+                                    onClick={(e) => {
+                                        const offsetY = e.nativeEvent.offsetY;
+                                        const snappedY = Math.round(offsetY / 30) * 30;
+                                        const time = getTimeFromOffset(snappedY, startHour, col.date);
+                                        // For week view with all barbers, default to next_available unless one is selected
+                                        onAddClient(col.barberId, new Date(time));
+                                    }}
+                                >
+                                    {/* Render Soft-Lock Zones (Behind events) */}
+                                    {colEvents.filter(e => e.type === 'remote').map(evt => {
+                                        const bufferMins = settings?.remoteBufferMinutes || 30;
+                                        const bufferMs = bufferMins * 60000;
+                                        const lockStart = evt.startTime - bufferMs;
+                                        const top = getTopOffset(lockStart, startHour);
+                                        const height = (bufferMs / 60000) * PIXELS_PER_MINUTE;
 
-                                {events.filter(e => e.barberId === b.id).map(evt => (
-                                    <DraggableEvent key={evt.id} event={evt} startHour={startHour} settings={settings} />
-                                ))}
-                            </DroppableColumn>
-                        ))}
+                                        return (
+                                            <div key={`lock-${evt.id}`} style={{
+                                                position: 'absolute',
+                                                top: `${top}px`,
+                                                height: `${height}px`,
+                                                left: '4px', right: '4px',
+                                                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(234, 179, 8, 0.05) 100%)',
+                                                borderTop: '1px dashed rgba(234, 179, 8, 0.5)',
+                                                borderRadius: '6px 6px 0 0',
+                                                zIndex: 5,
+                                                pointerEvents: 'none',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <span style={{ fontSize: '0.6rem', color: 'rgba(234, 179, 8, 0.8)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                    Soft Lock
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {colEvents.map(evt => (
+                                        <DraggableEvent key={evt.id} event={evt} startHour={startHour} settings={settings} />
+                                    ))}
+                                </DroppableColumn>
+                            );
+                        })}
                     </div>
                 </div>
                 <DragOverlay>

@@ -62,7 +62,30 @@ interface SettingsViewProps {
 export function BarberDashboard() {
     const { clients, barbers, settings } = useQueue();
     const [activeTab, setActiveTab] = useState<'queue' | 'calendar' | 'settings'>('queue');
+    const [selectedBarberId, setSelectedBarberId] = useState<string | 'all'>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isPoolOpen, setIsPoolOpen] = useState(true);
+    const [isNavExpanded, setIsNavExpanded] = useState(false);
+
+    // Orientation state
+    const [isLandscape, setIsLandscape] = useState(() => window.matchMedia('(orientation: landscape)').matches);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(orientation: landscape)');
+        const handleChange = (e: MediaQueryListEvent) => {
+            setIsLandscape(e.matches);
+            // Reset to default view automatically upon rotation
+            setSelectedBarberId('all');
+            setActiveTab('queue');
+            setIsPoolOpen(true);
+        };
+        
+        // Ensure initial state is correct in case it changed before hydration
+        setIsLandscape(mediaQuery.matches);
+
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
 
     // Modal State
     const [newClientName, setNewClientName] = useState('');
@@ -156,14 +179,36 @@ export function BarberDashboard() {
     };
 
     return (
-        <div className="h-screen flex overflow-hidden bg-background font-sans text-text-main selection:bg-primary/30">
+        <div className="h-screen flex flex-col md:flex-row overflow-hidden bg-background font-sans text-text-main selection:bg-primary/30">
             {/* --- Left Navigation Rail --- */}
-            <nav className="w-20 bg-background border-r border-border flex flex-col items-center py-6 z-30 shrink-0">
-                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-10 border border-primary/20">
-                    <span className="material-icons text-primary text-2xl">content_cut</span>
+            <nav className={`
+                ${isNavExpanded ? 'w-48' : 'w-20'} 
+                bg-background border-r border-border flex flex-col items-center py-6 z-30 shrink-0 transition-all duration-300
+                hidden md:flex
+            `}>
+                <button onClick={() => {
+                    setSelectedBarberId('all');
+                    setActiveTab('calendar');
+                    setIsPoolOpen(false);
+                }} className={`w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 border border-primary/20 transition-all duration-300 ${selectedBarberId === 'all' ? 'shadow-[0_0_15px_rgba(197,160,89,0.4)] scale-105' : 'hover:bg-primary/20'}`} title="All Barbers (Calendar)">
+                    <span className="material-icons text-primary text-2xl">groups</span>
+                </button>
+
+                <div className="flex flex-col gap-4 mb-8 w-full max-h-[40vh] overflow-y-auto no-scrollbar items-center">
+                    {barbers.filter(b => b.isAvailable).map(b => (
+                        <button key={b.id} onClick={() => {
+                            setSelectedBarberId(b.id);
+                            if (activeTab === 'calendar') setActiveTab('queue'); // Default to queue when selecting a single barber? The prompt says "main stage should display all the information for that barber", we can stay on the active tab or default to queue. Let's keep active tab, user can switch to calendar or queue for that barber.
+                        }} className={`flex flex-col items-center gap-1.5 group w-full shrink-0`}>
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${selectedBarberId === b.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105' : 'opacity-70 hover:opacity-100'}`}>
+                                <Avatar name={b.name} size="md" />
+                            </div>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest ${selectedBarberId === b.id ? 'text-primary' : 'text-text-secondary group-hover:text-text-main'}`}>{b.name.split(' ')[0]}</span>
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex flex-col gap-6 flex-1">
+                <div className="flex flex-col gap-6 mt-auto">
                     <NavButton
                         icon="view_quilt"
                         label="Queue"
@@ -184,7 +229,7 @@ export function BarberDashboard() {
                     />
                 </div>
 
-                <div className="flex flex-col gap-4 mt-auto mb-4 items-center">
+                <div className="flex flex-col gap-4 mt-6 mb-4 items-center">
                     <div title={new Date().toLocaleTimeString()} className="text-[10px] text-text-secondary font-mono">
                         {new Date().getHours()}:{new Date().getMinutes().toString().padStart(2, '0')}
                     </div>
@@ -192,44 +237,90 @@ export function BarberDashboard() {
                 </div>
             </nav>
 
+            {/* Mobile Bottom Navigation */}
+            <nav className="md:hidden h-16 bg-background border-t border-border flex items-center justify-around z-30 shrink-0">
+                <NavButton
+                    icon="view_quilt"
+                    label="Queue"
+                    isActive={activeTab === 'queue'}
+                    onClick={() => setActiveTab('queue')}
+                    compact
+                />
+                <NavButton
+                    icon="calendar_today"
+                    label="Calendar"
+                    isActive={activeTab === 'calendar'}
+                    onClick={() => setActiveTab('calendar')}
+                    compact
+                />
+                <NavButton
+                    icon="settings"
+                    label="Configs"
+                    isActive={activeTab === 'settings'}
+                    onClick={() => setActiveTab('settings')}
+                    compact
+                />
+                <button 
+                    onClick={() => setIsPoolOpen(!isPoolOpen)}
+                    className={`flex flex-col items-center gap-1 ${isPoolOpen ? 'text-primary' : 'text-text-secondary'}`}
+                >
+                    <span className="material-icons">group</span>
+                    <span className="text-[9px] font-bold uppercase">Pool</span>
+                </button>
+            </nav>
+
             {/* --- Main Content Area --- */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
-                <header className="h-16 bg-background/90 backdrop-blur-md border-b border-border flex items-center px-6 justify-between z-20 shrink-0">
+                <header className="h-16 bg-background/90 backdrop-blur-md border-b border-border flex items-center px-4 md:px-6 justify-between z-20 shrink-0">
                     <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => setIsNavExpanded(!isNavExpanded)}
+                            className="hidden md:flex p-2 hover:bg-surfaceHighlight rounded-lg text-text-secondary transition-colors"
+                        >
+                            <span className="material-icons">{isNavExpanded ? 'menu_open' : 'menu'}</span>
+                        </button>
                         <h1 className="text-lg font-bold tracking-tight text-text-main">Staff Hub</h1>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="hidden md:flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <StatPill label="Wait" value={`~${avgWait}m`} />
-                            <StatPill label="Queue" value={globalPool.length.toString()} />
-                            <StatPill label="Active" value={`${activeBarbersCount}/${barbers.length}`} highlight />
+                            <StatPill label="Queue" value={globalPool.length.toString()} className="hidden sm:flex" />
+                            <StatPill label="Active" value={`${activeBarbersCount}/${barbers.length}`} highlight className="hidden sm:flex" />
                         </div>
-                        <div className={`ml-2 w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(197,160,89,0.5)] ${activeBarbersCount > 0 ? 'bg-primary' : 'bg-red-500'}`}></div>
+                        <button 
+                            onClick={() => setIsPoolOpen(!isPoolOpen)}
+                            className={`p-2 rounded-lg transition-all ${isPoolOpen ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-surfaceHighlight'}`}
+                        >
+                            <span className="material-icons">group</span>
+                        </button>
                     </div>
                 </header>
 
                 {/* Content Body */}
                 <main className="flex-1 overflow-hidden relative bg-background">
                     {activeTab === 'queue' && (
-                        <div className="absolute inset-0 overflow-hidden p-4">
-                            <div className="grid grid-cols-4 gap-4 h-full w-full">
+                        <div className="absolute inset-0 overflow-y-auto overflow-x-hidden p-4 custom-scrollbar">
+                            <div className={isLandscape ? "flex flex-row gap-4 pb-8 w-full" : "grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 auto-rows-min pb-8 w-full"}>
                                 {/* Barber Columns */}
-                                {barbers.map(barber => (
-                                    <BarberColumnWrapper
-                                        key={barber.id}
-                                        barber={barber}
-                                        queue={getQueueFor(barber.id)}
-                                        inChair={getInChair(barber.id)}
-                                        onCallNext={() => queueManager.callNext(barber.id)}
-                                        onSnooze={(clientId: string) => queueManager.snoozeClient(clientId)}
-                                        onToggleAvailability={() => queueManager.toggleBarberAvailability(barber.id, !barber.isAvailable)}
-                                        onEditGroup={setEditingGroupClient}
-                                        useServiceProgress={useServiceProgress}
-                                        settings={settings}
-                                    />
-                                ))}
+                                {barbers
+                                    .filter(b => selectedBarberId === 'all' || b.id === selectedBarberId)
+                                    .map(barber => (
+                                     <div key={barber.id} className={isLandscape ? "flex-1 min-w-0" : ""}>
+                                         <BarberColumnWrapper
+                                             barber={barber}
+                                             queue={getQueueFor(barber.id)}
+                                             inChair={getInChair(barber.id)}
+                                             onCallNext={() => queueManager.callNext(barber.id)}
+                                             onSnooze={(clientId: string) => queueManager.snoozeClient(clientId)}
+                                             onToggleAvailability={() => queueManager.toggleBarberAvailability(barber.id, !barber.isAvailable)}
+                                             onEditGroup={setEditingGroupClient}
+                                             useServiceProgress={useServiceProgress}
+                                             settings={settings}
+                                         />
+                                     </div>
+                                 ))}
                             </div>
                         </div>
                     )}
@@ -237,7 +328,7 @@ export function BarberDashboard() {
                     {activeTab === 'calendar' && (
                         <div className="h-full p-4">
                             <Card className="h-full flex flex-col bg-surface/50">
-                                <CalendarView onAddClient={handleCalendarAdd} />
+                                <CalendarView onAddClient={handleCalendarAdd} selectedBarberId={selectedBarberId} />
                             </Card>
                         </div>
                     )}
@@ -283,7 +374,10 @@ export function BarberDashboard() {
             </div>
 
             {/* --- Right Sidebar: Next Available Pool --- */}
-            <aside className="w-80 bg-background border-l border-border flex flex-col z-30 shadow-2xl shrink-0">
+            <aside className={`
+                ${isPoolOpen ? 'translate-x-0 w-64' : 'translate-x-full w-0'} 
+                fixed md:relative top-0 right-0 h-full bg-background border-l border-border flex flex-col z-40 shadow-2xl shrink-0 transition-all duration-300 overflow-hidden
+            `}>
                 <div className="p-5 border-b border-border bg-background sticky top-0">
                     <h2 className="text-lg font-extrabold text-text-main leading-tight flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(197,160,89,0.5)]"></span>
@@ -440,13 +534,17 @@ export function BarberDashboard() {
 
 // --- Sub-Components ---
 
-function NavButton({ icon, label, isActive, onClick }: { icon: string, label: string, isActive: boolean, onClick: () => void }) {
+function NavButton({ icon, label, isActive, onClick, compact }: { icon: string, label: string, isActive: boolean, onClick: () => void, compact?: boolean }) {
     return (
-        <button onClick={onClick} className="flex flex-col items-center gap-1.5 group w-full">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-primary text-background shadow-[0_0_15px_rgba(197,160,89,0.4)] scale-105' : 'text-text-secondary group-hover:bg-surfaceHighlight group-hover:text-primary'}`}>
-                <span className="material-icons text-2xl">{icon}</span>
+        <button onClick={onClick} className={`flex flex-col items-center gap-1.5 group ${compact ? '' : 'w-full'}`}>
+            <div className={`
+                ${compact ? 'w-10 h-10 rounded-xl' : 'w-12 h-12 rounded-2xl'} 
+                flex items-center justify-center transition-all duration-300 
+                ${isActive ? 'bg-primary text-background shadow-[0_0_15px_rgba(197,160,89,0.4)] scale-105' : 'text-text-secondary group-hover:bg-surfaceHighlight group-hover:text-primary'}
+            `}>
+                <span className={`material-icons ${compact ? 'text-xl' : 'text-2xl'}`}>{icon}</span>
             </div>
-            <span className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'text-primary' : 'text-text-secondary group-hover:text-text-main'}`}>{label}</span>
+            {!compact && <span className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'text-primary' : 'text-text-secondary group-hover:text-text-main'}`}>{label}</span>}
         </button>
     );
 }
@@ -756,6 +854,95 @@ function SettingsView({ barbers, settings, onAddBarber, onRemoveBarber, sensors,
                 </Card>
             </section>
 
+            <section>
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">Services & Pricing</h3>
+                <Card className="p-6 bg-surface/50 border-dashed">
+                    {['Main Services', 'Add-ons', 'Treatments', 'Surcharges'].map(category => (
+                        <div key={category} className="mb-8 last:mb-0">
+                            <h4 className="text-xs font-bold text-text-main border-b border-border pb-2 mb-4 flex items-center gap-2">
+                                {category}
+                            </h4>
+                            {/* Column Headings */}
+                            {(localSettings.services || []).filter(s => s.category === category).length > 0 && (
+                                <div className="flex gap-2 px-3 mb-2 text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
+                                    <div className="flex-1">Service</div>
+                                    <div className="w-24">Cost</div>
+                                    <div className="w-16 hidden sm:block text-right pr-6">Time</div>
+                                    <div className="w-8 ml-1"></div>
+                                </div>
+                            )}
+                            <div className="space-y-3">
+                                {(localSettings.services || []).filter(s => s.category === category).map(service => (
+                                    <div key={service.id} className="flex gap-2 items-center bg-background p-2 rounded-xl border border-border shadow-sm focus-within:border-primary/50 transition-colors">
+                                        <input
+                                            className="flex-1 bg-transparent border-none text-sm font-medium text-text-main focus:outline-none min-w-0"
+                                            value={service.name}
+                                            onChange={(e) => {
+                                                const updated = (localSettings.services || []).map(s => s.id === service.id ? { ...s, name: e.target.value } : s);
+                                                updateLocalSetting({ services: updated });
+                                            }}
+                                            placeholder="Service Name"
+                                        />
+                                        <div className="w-[1px] h-6 bg-border mx-2"></div>
+                                        <input
+                                            className="w-24 bg-transparent border-none text-sm text-text-main focus:outline-none"
+                                            value={service.price}
+                                            onChange={(e) => {
+                                                const updated = (localSettings.services || []).map(s => s.id === service.id ? { ...s, price: e.target.value } : s);
+                                                updateLocalSetting({ services: updated });
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    let num = parseFloat(service.price.replace(/[^0-9.-]/g, ''));
+                                                    if (!isNaN(num)) {
+                                                        const formatted = `£${num.toFixed(2)}`;
+                                                        const updated = (localSettings.services || []).map(s => s.id === service.id ? { ...s, price: formatted } : s);
+                                                        updateLocalSetting({ services: updated });
+                                                    }
+                                                    e.currentTarget.blur();
+                                                }
+                                            }}
+                                            placeholder="Price"
+                                        />
+                                        <div className="w-[1px] h-6 bg-border mx-2 hidden sm:block"></div>
+                                        <div className="relative hidden sm:flex items-center">
+                                            <input
+                                                type="number"
+                                                className="w-16 bg-transparent border-none text-sm text-text-main focus:outline-none text-right pr-6"
+                                                value={service.durationMinutes || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value ? parseInt(e.target.value) : null;
+                                                    const updated = (localSettings.services || []).map(s => s.id === service.id ? { ...s, durationMinutes: val } : s);
+                                                    updateLocalSetting({ services: updated });
+                                                }}
+                                                placeholder="--"
+                                            />
+                                            <span className="absolute right-0 text-xs text-text-secondary pointer-events-none">m</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                const updated = (localSettings.services || []).filter(s => s.id !== service.id);
+                                                updateLocalSetting({ services: updated });
+                                            }} 
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-secondary hover:bg-red-500/10 hover:text-red-500 transition-colors ml-1"
+                                            title="Remove Service"
+                                        >
+                                            <span className="material-icons text-sm">close</span>
+                                        </button>
+                                    </div>
+                                ))}
+                                <Button variant="ghost" onClick={() => {
+                                    const newService = { id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2), category, name: '', price: '£0.00', durationMinutes: 20 };
+                                    updateLocalSetting({ services: [...(localSettings.services || []), newService] });
+                                }} className="text-xs font-bold uppercase tracking-wider opacity-70 hover:opacity-100">
+                                    <span className="material-icons text-sm mr-1">add</span>
+                                    Add Service
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </Card>
+            </section>
             {/* Theme Selector - Temporarily Disabled (Tailwind v4 Config Issue)
             <section>
                 <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">Theme</h3>

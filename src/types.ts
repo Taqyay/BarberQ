@@ -1,5 +1,12 @@
 export type BarberId = string; // Dynamic IDs, plus 'next_available' as a reserved preference
 
+export interface ServiceItem {
+  id: string;
+  category: string;
+  name: string;
+  price: string;
+  durationMinutes: number | null;
+}
 export type ClientStatus = 'waiting' | 'in_chair' | 'finished' | 'cancelled' | 'snoozed';
 
 export interface Client {
@@ -18,6 +25,7 @@ export interface Client {
   reservationTime?: number; // Smart Timeslot: Timestamp of booking slot
   serviceStartTime?: number; // Timestamp when they sat in the chair (for accurate calendar rendering)
   serviceEndTime?: number; // Timestamp when they finished (for history)
+  serviceId?: string; // Selected main service ID
 }
 
 export interface Settings {
@@ -29,6 +37,7 @@ export interface Settings {
   lastCutTime: number; // Closing hour (e.g., 18)
   mvsMinutes: number; // Minimum Viable Slot for booking gaps
   theme?: string;
+  services?: ServiceItem[];
 }
 
 export interface BarberState {

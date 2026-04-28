@@ -62,7 +62,14 @@ const SettingSchema = new mongoose.Schema({
   firstCutTime: Number,
   lastCutTime: Number,
   mvsMinutes: Number,
-  theme: String
+  theme: String,
+  services: [{
+    id: String,
+    category: String,
+    name: String,
+    price: String,
+    durationMinutes: Number
+  }]
 });
 
 const ClientSchema = new mongoose.Schema({
@@ -80,7 +87,8 @@ const ClientSchema = new mongoose.Schema({
   reservationTime: Number,
   serviceStartTime: Number,
   serviceEndTime: Number,
-  snoozeStartTime: Number
+  snoozeStartTime: Number,
+  serviceId: String
 }, { timestamps: true });
 
 const Setting = mongoose.model('Setting', SettingSchema);
@@ -154,7 +162,26 @@ const DEFAULT_SETTINGS = {
   firstCutTime: 9,
   lastCutTime: 18,
   mvsMinutes: 15,
-  theme: 'golden-sand'
+  theme: 'golden-sand',
+  services: [
+    { id: randomUUID(), category: 'Main Services', name: 'Gents cut (Cut, wash, blow dry & style)', price: '£13.95', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Main Services', name: 'Skin fade (Fade, ear flaming, wash & blow dry)', price: '£15.95', durationMinutes: 30 },
+    { id: randomUUID(), category: 'Main Services', name: 'Headshave (Cut throat shave, hot towel & massage)', price: '£12.95', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Main Services', name: 'Deluxe hot towel shave (Shape up, hot towel & massage)', price: '£11.00', durationMinutes: 30 },
+    { id: randomUUID(), category: 'Main Services', name: 'Beard trim with machine', price: '£6.95', durationMinutes: 10 },
+    { id: randomUUID(), category: 'Main Services', name: 'Children under 12', price: '£8.95', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Add-ons', name: 'Ear / nose flaming & waxing', price: '£6.00', durationMinutes: 10 },
+    { id: randomUUID(), category: 'Add-ons', name: 'Patterns and design', price: '£5.00 / £10.00', durationMinutes: 10 },
+    { id: randomUUID(), category: 'Treatments', name: 'Colour: beard', price: '£5.00', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Treatments', name: 'Colour: head', price: '£10.00', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Treatments', name: 'Colour: both', price: '£15.00', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Treatments', name: 'Traditional Turkish hot towel', price: '£3.00', durationMinutes: 20 },
+    { id: randomUUID(), category: 'Treatments', name: 'Black or mud mask treatment', price: '£5.00', durationMinutes: 15 },
+    { id: randomUUID(), category: 'Treatments', name: 'Head massage', price: '£5.00', durationMinutes: 5 },
+    { id: randomUUID(), category: 'Surcharges', name: 'Appointment (Advance booking)', price: '£5.00', durationMinutes: null },
+    { id: randomUUID(), category: 'Surcharges', name: 'After hours', price: '£5.00', durationMinutes: null },
+    { id: randomUUID(), category: 'Surcharges', name: 'Senior barbers available', price: 'Extra cost', durationMinutes: null }
+  ]
 };
 
 let state = {
@@ -428,7 +455,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('JOIN_QUEUE', async (payload) => {
-    const { id, name, preference, source } = payload;
+    const { id, name, preference, source, serviceId } = payload;
     const now = Date.now();
     const newClientData = {
       id: id || randomUUID(),
@@ -439,7 +466,8 @@ io.on('connection', (socket) => {
       originalCheckInTime: now,
       source: source || 'qr',
       groupSize: payload.groupSize || 1,
-      remainingSize: payload.groupSize || 1
+      remainingSize: payload.groupSize || 1,
+      serviceId
     };
     if (useDB) {
       await ClientModel.create(newClientData);

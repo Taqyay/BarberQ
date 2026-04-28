@@ -27,7 +27,7 @@ export function CustomerTicket({ clientId, onClear }: Props) {
         return (
             <div className="container fade-in" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <h2 style={{ color: 'var(--color-gold)' }}>You are all set!</h2>
-                <p style={{ margin: '1rem 0', color: '#fff' }}>
+                <p style={{ margin: '1rem 0', color: 'var(--color-text-main)' }}>
                     {client?.status === 'finished' ? "We hope you enjoyed your cut!" : "Your spot has been cleared."}
                 </p>
                 <button className="btn-secondary" onClick={onClear}>Start Over</button>
@@ -49,7 +49,7 @@ export function CustomerTicket({ clientId, onClear }: Props) {
                 </h3>
 
                 <div style={{ margin: '2rem 0' }}>
-                    <h1 style={{ fontSize: '4rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                    <h1 style={{ fontSize: '4rem', fontWeight: 800, color: 'var(--color-text-main)', lineHeight: 1 }}>
                         #{position}
                     </h1>
                     <p style={{ color: 'var(--color-text-secondary)' }}>in line for {client.barberPreference}</p>
@@ -62,7 +62,7 @@ export function CustomerTicket({ clientId, onClear }: Props) {
                 )}
 
                 {client.status === 'snoozed' && (
-                    <div style={{ background: '#2a2211', border: '1px solid var(--color-gold)', color: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <div style={{ background: '#2a2211', border: '1px solid var(--color-gold)', color: 'var(--color-text-main)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
                         <h2 style={{ color: 'var(--color-gold)', fontSize: '1.2rem', margin: 0 }}>MISSED CALL</h2>
                         <p style={{ margin: '0.5rem 0' }}>We are holding your spot!</p>
                         <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-gold)', animation: 'pulse 1s infinite' }}>
@@ -94,7 +94,7 @@ export function CustomerTicket({ clientId, onClear }: Props) {
                 </button>
             </div>
 
-            <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#555' }}>
+            <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
                 Please stay close. If you miss your call, you may lose your spot.
             </p>
         </div>

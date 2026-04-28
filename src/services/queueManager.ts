@@ -87,11 +87,11 @@ export class QueueManager {
     this.socket.emit('REORDER_BARBERS', newOrderIds);
   }
 
-  addClient(name: string, preference: BarberId, source: 'qr' | 'manual' = 'qr', groupSize: number = 1) {
+  addClient(name: string, preference: BarberId, source: 'qr' | 'manual' = 'qr', groupSize: number = 1, serviceId?: string) {
     // Client-side ID generation for "My Ticket" tracking
     // crypto.randomUUID() requires Secure Context (HTTPS), using fallback for network IP
     const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
-    this.socket.emit('JOIN_QUEUE', { id, name, preference, source, groupSize });
+    this.socket.emit('JOIN_QUEUE', { id, name, preference, source, groupSize, serviceId });
     // Return the ID so the UI can track it immediately
     return { id };
   }
